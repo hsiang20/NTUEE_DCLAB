@@ -1,0 +1,16 @@
+s1(18Nov2021:16:09:54):  ncverilog +access+r I2c_tb.sv ../I2cInitializer.sv 
+s2(18Nov2021:16:12:31):  ncverilog +access+r I2c_tb.sv ../I2cInitializer.sv 
+s3(18Nov2021:16:12:38):  ncverilog +access+r I2c_tb.sv ../I2cInitializer.sv 
+s4(18Nov2021:16:25:45):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s5(18Nov2021:16:40:54):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s6(18Nov2021:16:41:04):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s7(18Nov2021:16:41:31):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s8(18Nov2021:16:47:45):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s9(18Nov2021:16:50:44):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s10(18Nov2021:16:51:16):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s11(18Nov2021:16:51:47):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s12(18Nov2021:16:51:57):  ncverilog +access+r I2CInitializer_tb.sv ../I2cInitializer.sv 
+s13(18Nov2021:17:22:08):  ncverilog +access+r AudRecorder_tb.sv ../AudRecorder.sv 
+s14(18Nov2021:17:23:07):  ncverilog +access+r AudRecorder_tb.sv ../AudRecorder.sv 
+s15(18Nov2021:17:23:32):  ncverilog +access+r AudRecorder_tb.sv ../AudRecorder.sv 
+s16(18Nov2021:17:23:35):  ncverilog +access+r AudRecorder_tb.sv ../AudRecorder.sv 

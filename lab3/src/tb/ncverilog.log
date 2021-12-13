@@ -1,0 +1,72 @@
+ncverilog(64): 15.20-s084: (c) Copyright 1995-2020 Cadence Design Systems, Inc.
+TOOL:	ncverilog	15.20-s084: Started on Nov 18, 2021 at 17:23:35 CST
+ncverilog
+	+access+r
+	AudRecorder_tb.sv
+	../AudRecorder.sv
+file: AudRecorder_tb.sv
+	module worklib.tb:sv
+		errors: 0, warnings: 0
+		Caching library 'worklib' ....... Done
+	Elaborating the design hierarchy:
+ncelab: *W,DSEMEL: This SystemVerilog design will be simulated as per IEEE 1800-2009 SystemVerilog simulation semantics. Use -disable_sem2009 option for turning off SV 2009 simulation semantics.
+	Building instance overlay tables: .................... Done
+	Generating native compiled code:
+		worklib.AudRecorder:sv <0x10605f56>
+			streams:   5, words:  4220
+		worklib.tb:sv <0x00def3f1>
+			streams:   8, words: 10119
+	Building instance specific data structures.
+	Loading native compiled code:     .................... Done
+	Design hierarchy summary:
+		                   Instances  Unique
+		Modules:                   2       2
+		Registers:                20      20
+		Scalar wires:              8       -
+		Vectored wires:            4       -
+		Always blocks:             3       3
+		Initial blocks:            3       3
+		Cont. assignments:         1       2
+		Pseudo assignments:        4       4
+		Simulation timescale:  100ps
+	Writing initial simulation snapshot: worklib.tb:sv
+Loading snapshot worklib.tb:sv .................... Done
+ncsim: *W,DSEM2009: This SystemVerilog design is simulated as per IEEE 1800-2009 SystemVerilog simulation semantics. Use -disable_sem2009 option for turning off SV 2009 simulation semantics.
+*Verdi3* Loading libsscore_ius122.so
+*Verdi3* : Enable Parallel Dumping.
+ncsim> source /opt/CAD/INCISIV/cur/tools/inca/files/ncsimrc
+ncsim> run
+FSDB Dumper for IUS, Release Verdi3_2013.07, Linux x86_64/64bit, 07/04/2013
+(C) 1996 - 2013 by Synopsys, Inc.
+***********************************************************************
+*  WARNING -                                                          *
+*  The simulator version is newer than the FSDB dumper version which  *
+*  may cause abnormal behavior, please contact Synopsys support for   *
+*  assistance.                                                        *
+***********************************************************************
+*Verdi3* : Create FSDB file 'AudRecorder.fsdb'
+*Verdi3* : Begin traversing the scopes, layer (0).
+*Verdi3* : End of traversing.
+reset~
+start~
+0, audio_dat[i] = 1, i_ADCDAT = 1
+1, audio_dat[i] = 1, i_ADCDAT = 1
+2, audio_dat[i] = 0, i_ADCDAT = 0
+3, audio_dat[i] = 1, i_ADCDAT = 1
+4, audio_dat[i] = 0, i_ADCDAT = 0
+5, audio_dat[i] = 1, i_ADCDAT = 1
+6, audio_dat[i] = 0, i_ADCDAT = 0
+7, audio_dat[i] = 1, i_ADCDAT = 1
+8, audio_dat[i] = 0, i_ADCDAT = 0
+9, audio_dat[i] = 1, i_ADCDAT = 1
+10, audio_dat[i] = 0, i_ADCDAT = 0
+11, audio_dat[i] = 1, i_ADCDAT = 1
+12, audio_dat[i] = 0, i_ADCDAT = 0
+13, audio_dat[i] = 1, i_ADCDAT = 1
+14, audio_dat[i] = 1, i_ADCDAT = 1
+15, audio_dat[i] = 1, i_ADCDAT = 1
+finish
+Simulation complete via $finish(1) at time 825 NS + 0
+./AudRecorder_tb.sv:83         $finish;
+ncsim> exit
+TOOL:	ncverilog	15.20-s084: Exiting on Nov 18, 2021 at 17:23:37 CST  (total: 00:00:02)

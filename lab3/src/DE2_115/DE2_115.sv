@@ -177,7 +177,10 @@ Top top0(
 	.i_key_0(key0down),
 	.i_key_1(key1down),
 	.i_key_2(key2down),
-	// .i_speed(SW[3:0]), // design how user can decide mode on your own
+	.i_speed(SW[2:0]), // design how user can decide mode on your own
+	.i_fast(SW[3]), 
+	.i_slow_0(SW[4]), 
+	.i_slow_1(SW[5]), 
 	
 	// AudDSP and SRAM
 	.o_SRAM_ADDR(SRAM_ADDR), // [19:0]

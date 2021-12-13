@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<preferences>
+ <debug showDebugMenu="0" />
+ <systemtable filter="All Interfaces">
+  <columns>
+   <connections preferredWidth="95" />
+   <irq preferredWidth="34" />
+  </columns>
+ </systemtable>
+ <library
+   expandedCategories="Project/Basic Functions,Project,Library,Project/Basic Functions/Clocks; PLLs and Resets,Project/Basic Functions/Clocks; PLLs and Resets/PLL" />
+ <window width="1090" height="800" x="10" y="0" />
+ <generation path="C:/Lab3/src/daodao" />
+</preferences>
