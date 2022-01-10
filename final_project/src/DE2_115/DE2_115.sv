@@ -138,6 +138,7 @@ module DE2_115 (
 
 logic keydown_0, keydown_2;
 logic [3:0] random_value;
+logic CLK_25;
 
 Debounce deb0(
 	.i_in(KEY[0]),
@@ -155,17 +156,31 @@ Debounce deb1(
 
 Top top0(
 	.i_clk(CLOCK_50),
+	.i_clk_25(CLK_25), 
 	.i_rst_n(KEY[1]),
 	.i_start(keydown_0),
-	.i_back(keydown_2), 
-	.o_random_out(random_value)
+	.VGA_R(VGA_R), 
+	.VGA_G(VGA_G), 
+	.VGA_B(VGA_B), 
+	.VGA_CLK(VGA_CLK), 
+	.VGA_BLANK_N(VGA_BLANK_N), 
+	.VGA_HS(VGA_HS), 
+	.VGA_VS(VGA_VS), 
+	.VGA_SYNC_N(VGA_SYNC_N)
 );
 
-SevenHexDecoder seven_dec0(
-	.i_hex(random_value),
-	.o_seven_ten(HEX1),
-	.o_seven_one(HEX0)
+vga_test my_qsys(
+	.clk_clk(CLOCK_50), 
+	.reset_reset_n(KEY[0]), 
+	.altpll_0_c0_clk(CLK_25)
 );
+
+
+// SevenHexDecoder seven_dec0(
+	// .i_hex(random_value),
+	// .o_seven_ten(HEX1),
+	// .o_seven_one(HEX0)
+// );
 
 assign HEX2 = '1;
 assign HEX3 = '1;
@@ -174,9 +189,9 @@ assign HEX5 = '1;
 assign HEX6 = '1;
 assign HEX7 = '1;
 
-`ifdef DUT_LAB1
+`ifdef DUT_FINAL
 	initial begin
-		$fsdbDumpfile("LAB1.fsdb");
+		$fsdbDumpfile("Final_project.fsdb");
 		$fsdbDumpvars(0, DE2_115, "+mda");
 	end
 `endif
