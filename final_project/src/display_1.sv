@@ -67,12 +67,10 @@ module display_1 (
                 line_w  = (sy_r >= VA_START && sx_r == H_START);
             end
             S_DISPLAY: begin
-                //    hs_w = ~(sx_r > HS_START && sx_r <= HS_END);
-                //    vs_w = ~(sy_r > VS_START && sy_r <= VS_END);
                 hs_w = ~(sx_r >= H_START && sx_r < H_START+H_SYNC);
                 vs_w = ~(sy_r >= V_START && sy_r < V_START+V_SYNC);
-                de_w    = (sy_r >= VA_START && sx_r >= HA_START);
-                frame_w = (sy_r == V_START && sx_r == H_START);
+                de_w    = (sy_r >= VA_START-V_FRONT && sx_r >= HA_START-H_FRONT); // modified
+                frame_w = (sy_r == VA_START && sx_r == HA_START);
                 line_w  = (sy_r >= VA_START && sx_r == H_START);
                 if (sx_r == HA_END) begin
                     sx_w = H_START;
@@ -96,11 +94,11 @@ module display_1 (
     always_ff @(posedge clk_25M or negedge rst) begin
         if (!rst) begin
             state_r <= S_IDLE;
-           frame_r <= 0;
-           sx_r <= H_START;
-           sy_r <= V_START; 
+            frame_r <= 0;
+            sx_r <= H_START;
+            sy_r <= V_START; 
 		    hs_r <= 1'b1;
-           vs_r <= 1'b1;
+            vs_r <= 1'b1;
 			line_r  <= 1'b0;
 			de_r    <= 1'b0;
         end

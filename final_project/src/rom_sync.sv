@@ -1,9 +1,10 @@
-module rom_async #(
+module rom_sync #(
 	parameter WIDTH=8,
 	parameter DEPTH=256, 
 	parameter INIT_F="", 
 	parameter ADDRW=$clog2(DEPTH)
 	)(
+    input wire logic clk, 
     input wire logic [ADDRW-1:0] addr, 
     output     logic [WIDTH-1:0] data
     );
@@ -16,5 +17,7 @@ module rom_async #(
         end
     end
 
-    always_comb data = memory[addr]; 
+    always_ff @(posedge clk) begin
+        data <= memory[addr];
+    end 
 endmodule
