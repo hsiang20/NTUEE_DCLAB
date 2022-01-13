@@ -4,6 +4,7 @@ module Top (
     input i_key2, 
     input i_key3, 
     input i_sw0, 
+    input i_sw1, 
 
     // VGA
     input i_clk_25, 
@@ -16,7 +17,7 @@ module Top (
     output VGA_HS, 
     output VGA_VS, 
     output VGA_SYNC_N, 
-	output state
+	output [2:0] state
 );
     // display sync signals and coordinates
     localparam CORDW = 16; // screen coordinate width
@@ -29,7 +30,72 @@ module Top (
     assign VGA_G = g_r;
     assign VGA_B = b_r;
 	assign VGA_CLK = i_clk_25;
-	assign state = started_r;
+    assign state = state_r;
+
+    // game FSM
+    localparam INIT = 3'd0;
+    localparam JUMP = 3'd1;
+    localparam NORMAL = 3'd2;
+    localparam DEAD = 3'd3;
+    localparam OPEN = 3'd4;
+    logic [2:0] state_r, state_w;
+    logic [19:0] screen_height_r, screen_height_w; // doodle height: spry_r, speed: y_motion_r
+    always_comb begin
+        if (frame) begin
+            case (state_r)
+                OPEN: begin
+                    screen_height_w = screen_height_r;
+                    if (i_sw0) state_w = INIT;
+                    else state_w = OPEN;
+                end
+                INIT: begin
+                    screen_height_w = screen_height_r;
+                    if ((spry_r+SPR_HEIGHT) <= platey_r && (spry_r+SPR_HEIGHT+10) > platey_r && y_motion_r > 0 && (sprx_r+SPR_WIDTH) > platex_r && sprx_r < (platex_r+PLATE_WIDTH)) begin
+                        state_w = JUMP;
+                    end
+                    else state_w = INIT;
+                end 
+                JUMP: begin
+                    if (platey_r >= 420) begin
+                        screen_height_w = 87; 
+                        state_w = NORMAL;
+                    end
+                    else begin
+                        screen_height_w = screen_height_r + y_motion_r;
+                        state_w = JUMP;
+                    end
+                end
+                NORMAL: begin
+                    // screen_height_w = screen_height_r;
+                    screen_height_w = 87;
+                    state_w = state_r;
+                end
+                DEAD: begin
+                    screen_height_w = screen_height_r;
+                    state_w = INIT;
+                end
+                default: begin
+                    screen_height_w = screen_height_r;
+                    state_w = state_r;
+                end
+            endcase
+        end
+        else begin
+            screen_height_w = screen_height_r;
+            state_w = state_r;
+            if (i_sw0 && state_r == OPEN) state_w = INIT;
+        end
+    end
+    always_ff begin
+        if (!i_rst_n) begin
+            state_r <= OPEN;
+            screen_height_r <= 20'b0;
+        end
+        else begin
+            state_r <= state_w;
+            screen_height_r <= screen_height_w;
+        end
+    end
 	 
 
     // background color
@@ -41,7 +107,7 @@ module Top (
         if (line) begin
             case (sy)
                 469 : {bg_r_w, bg_g_w, bg_b_w} = 24'h87CEFF;
-                440 : {bg_r_w, bg_g_w, bg_b_w} = 24'h00FF00;
+                (440 + screen_height_r) : {bg_r_w, bg_g_w, bg_b_w} = 24'h7CFC00;
             endcase
         end
     end
@@ -60,13 +126,43 @@ module Top (
 
     // display color
     parameter SPR_TRANS = 0;
+    parameter PLATE_TRANS = 0;
+    parameter TITLE_TRANS = 0;
     logic [7:0] r_r, r_w, g_r, g_w, b_r, b_w;
     always_comb begin
-        spr_trans_w = (spr_pix == SPR_TRANS);
-        spr_drawing_w = spr_drawing;
-        r_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[11:8], 4'b0} : bg_r_r;
-        g_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[7:4], 4'b0} : bg_g_r;
-        b_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[3:0], 4'b0} : bg_b_r;
+        case (state_r) 
+            OPEN: begin
+                r_w = (title_drawing_r && !(title_pix == TITLE_TRANS) && de) ? {title_colr[11:8], 4'b0} : 
+                      (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)       ? {spr_colr[11:8], 4'b0}   : 
+                      (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[11:8], 4'b0} : bg_r_r;
+                g_w = (title_drawing_r && !(title_pix == TITLE_TRANS) && de) ? {title_colr[7:4], 4'b0}  :
+                      (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)       ? {spr_colr[7:4], 4'b0}    : 
+                      (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[7:4], 4'b0}  : bg_g_r;
+                b_w = (title_drawing_r && !(title_pix == TITLE_TRANS) && de) ? {title_colr[3:0], 4'b0}  :
+                      (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)       ? {spr_colr[3:0], 4'b0}    : 
+                      (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[3:0], 4'b0}  : bg_b_r;
+            end
+            default: begin
+                r_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[11:8], 4'b0} : 
+                    (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[11:8], 4'b0} : bg_r_r;
+                g_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[7:4], 4'b0} : 
+                    (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[7:4], 4'b0} : bg_g_r;
+                b_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[3:0], 4'b0} : 
+                    (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[3:0], 4'b0} : bg_b_r;
+            end
+        endcase
+    end
+	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+		if (!i_rst_n) begin
+            r_r <= 8'b0;
+            g_r <= 8'b0;
+            b_r <= 8'b0;
+        end
+		else begin
+            r_r <= r_w;
+            g_r <= g_w;
+            b_r <= b_w;
+        end
     end
 
 
@@ -127,58 +223,54 @@ module Top (
     );
     logic spr_trans_r, spr_trans_w;
     logic signed [10:0] y_motion_r, y_motion_w;
-	logic started_r, started_w;
     always_comb begin
         spr_start = (line && sy == spry_r);
         cnt_anim_w = cnt_anim_r;
-        spr_base_addr_w = spr_base_addr_r;
+        spr_base_addr_w = 0;
         sprx_w = sprx_r;
         spry_w = spry_r;
         y_motion_w = y_motion_r;
-        started_w = started_r;
+        spr_drawing_w = spr_drawing;
         if (frame) begin
-            started_w = 1'b1;
-            case (cnt_anim_r)
-                0: spr_base_addr_w = 0;
-                31: spr_base_addr_w = 0;
-            endcase
             if (!i_key2) begin
-                sprx_w = (sprx_r < H_RES) ? sprx_r + 2 : -SPR_WIDTH * SCALE_X;
+                sprx_w = (sprx_r < H_RES) ? sprx_r + 3 : -SPR_WIDTH * SCALE_X;
                 cnt_anim_w = cnt_anim_r + 1;
             end
             else if (!i_key3) begin
-                sprx_w = (sprx_r > -SPR_WIDTH*SCALE_X) ? sprx_r - 2 : H_RES;
+                sprx_w = (sprx_r > -SPR_WIDTH*SCALE_X) ? sprx_r - 3 : H_RES;
                 cnt_anim_w = cnt_anim_r + 1;
             end
             if (i_sw0) begin
-                if (spry_r >= 376) y_motion_w = -1;
-                else if (spry_r <= 250) y_motion_w = 1;
-                else if (y_motion_r < 0) y_motion_w = -(((spry_r - 250) >> 3) + 1);
-                else if (y_motion_r > 0) y_motion_w = ((spry_r - 250) >> 3) + 1;
-                else if (y_motion_r == 0) y_motion_w = 1;
+                if (state_r == JUMP) begin
+                    if (y_motion_r == 0) y_motion_w = 1;
+                    else y_motion_w = ((spry_r - platey_r) >> 3) + 1;
+                end
+                else begin
+                    if (spry_r >= 376) y_motion_w = -1;
+                    else if (spry_r <= 250) y_motion_w = 1;
+                    else if (y_motion_r < 0) y_motion_w = -(((spry_r - 250) >> 3) + 1);
+                    else if (y_motion_r > 0) y_motion_w = ((spry_r - 250) >> 3) + 1;
+                    else if (y_motion_r == 0) y_motion_w = 1;
+                end
             end
             else begin
                 y_motion_w = 0;
             end
-            spry_w = ((spry_r + y_motion_r) >= 376) ? 376 : (spry_r + y_motion_r);
+            spry_w = ((spry_r + y_motion_r) >= 376) ?    376 : 
+                                     (spry_r > 376) ?    376 :
+                                     (spry_r < 250) ?    250 :
+                                  (state_r == JUMP) ? spry_r : (spry_r + y_motion_r);
         end
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
 		if (!i_rst_n) begin
-            started_r = 1'b0;
-            r_r <= 8'b0;
-            g_r <= 8'b0;
-            b_r <= 8'b0;
             sprx_r <= 300;
             spry_r <= 376;
             y_motion_r <= 11'b0;
+            spr_base_addr_r <= 0;
         end
 		else begin
-            started_r <= started_w;
             spr_trans_r <= spr_trans_w;
-            r_r <= r_w;
-            g_r <= g_w;
-            b_r <= b_w;
             cnt_anim_r <= cnt_anim_w;
             spr_base_addr_r <= spr_base_addr_w;
             sprx_r <= sprx_w;
@@ -192,7 +284,7 @@ module Top (
     // plate
     parameter PLATE_FILE = "plate.mem";
     localparam PLATE_WIDTH = 64;
-    localparam PLATE_HEIGHT = 8;
+    localparam PLATE_HEIGHT = 16;
     localparam PLATE_FRAMES = 1;
     localparam PLATE_PIXELS = PLATE_WIDTH * PLATE_HEIGHT;
     localparam PLATE_DEPTH = PLATE_PIXELS * PLATE_FRAMES;
@@ -209,7 +301,7 @@ module Top (
         .addr(plate_base_addr_r + plate_rom_addr), 
         .data(plate_rom_data)
     );
-    parameter PLATE_PALETTE = "doodle_palette.mem";
+    parameter PLATE_PALETTE = "plate_palette.mem";
     logic [COLR_BITS-1:0] plate_pix;
     logic [11:0] plate_colr;
 	rom_async #(
@@ -244,7 +336,105 @@ module Top (
         .drawing(plate_drawing), 
         .done()
     );
+    localparam PLATE_BG_HEIGHT = 100;
+    logic plate_trans_r, plate_trans_w;
+    always_comb begin
+        plate_trans_w = (plate_pix == PLATE_TRANS);
+        plate_start = (line && sy == platey_r);
+        platex_w = platex_r;
+        platey_w = 469 - 16 - (PLATE_BG_HEIGHT - screen_height_r);
+        plate_base_addr_w = 0;
+        plate_drawing_w = plate_drawing;
+    end
+	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+		if (!i_rst_n) begin
+            platex_r <= 250;
+            platey_r <= 469 - 16 - 100; // 353
+        end
+		else begin
+            plate_trans_r <= plate_trans_w;
+            plate_base_addr_r <= plate_base_addr_w;
+            platex_r <= platex_w;
+            platey_r <= platey_w;
+            plate_drawing_r <= plate_drawing_w;
+        end
+	end
 
+
+    // title
+    parameter TITLE_FILE = "title.mem";
+    localparam TITLE_WIDTH = 512;
+    localparam TITLE_HEIGHT = 128;
+    localparam TITLE_FRAMES = 1;
+    localparam TITLE_PIXELS = TITLE_WIDTH * TITLE_HEIGHT;
+    localparam TITLE_DEPTH = TITLE_PIXELS * TITLE_FRAMES;
+    localparam TITLE_ADDRW = $clog2(TITLE_DEPTH);
+    logic [COLR_BITS-1:0] title_rom_data;
+    logic [TITLE_ADDRW-1:0] title_rom_addr;
+    rom_sync #(
+        .WIDTH(COLR_BITS), 
+        .DEPTH(TITLE_DEPTH), 
+        .INIT_F(TITLE_FILE)
+    ) title_rom (
+        .clk(i_clk_25), 
+        .addr(title_rom_addr), 
+        .data(title_rom_data)
+    );
+    parameter TITLE_PALETTE = "title_palette.mem";
+    logic [COLR_BITS-1:0] title_pix;
+    logic [11:0] title_colr;
+	rom_async #(
+		.WIDTH(12), 
+		.DEPTH(16), 
+		.INIT_F(TITLE_PALETTE), 
+        .ADDRW(4)
+    ) title_clut(
+        .addr(title_pix), 
+        .data(title_colr)
+    );
+    parameter TITLE_SCALE_X = 1;
+    parameter TITLE_SCALE_Y = 1;
+    logic signed [CORDW-1:0] titlex_r, titlex_w, titley_r, titley_w;
+    logic title_start, title_drawing, title_drawing_w, title_drawing_r;
+    sprite_1 #(
+        .WIDTH(TITLE_WIDTH), 
+        .HEIGHT(TITLE_HEIGHT), 
+        .COLR_BITS(COLR_BITS), 
+        .SCALE_X(TITLE_SCALE_X), 
+        .SCALE_Y(TITLE_SCALE_Y), 
+        .ADDRW(TITLE_ADDRW)
+    ) title(
+        .clk(i_clk_25), 
+        .rst(i_rst_n), 
+        .start(title_start), 
+        .sx(sx), 
+        .sprx(titlex_r),
+        .data_in(title_rom_data), 
+        .pos(title_rom_addr),  
+        .pix(title_pix), 
+        .drawing(title_drawing), 
+        .done()
+    );
+    logic title_trans_r, title_trans_w;
+    always_comb begin
+        title_trans_w = (title_pix == TITLE_TRANS);
+        title_start = (line && sy == titley_r);
+        titlex_w = titlex_r;
+        titley_w = titley_r;
+        title_drawing_w = title_drawing;
+    end
+	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+		if (!i_rst_n) begin
+            titlex_r <= 60;
+            titley_r <= 100;
+        end
+		else begin
+            title_trans_r <= title_trans_w;
+            titlex_r <= titlex_w;
+            titley_r <= titley_w;
+            title_drawing_r <= title_drawing_w;
+        end
+	end
 
 
 

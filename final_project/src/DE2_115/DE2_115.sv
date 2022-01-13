@@ -137,7 +137,7 @@ module DE2_115 (
 );
 
 logic keydown_0, keydown_2;
-logic [3:0] random_value;
+logic [2:0] state;
 logic CLK_25;
 
 Debounce deb0(
@@ -162,6 +162,7 @@ Top top0(
 	.i_key2(KEY[2]),
 	.i_key3(KEY[3]),
 	.i_sw0(SW[0]),
+	.i_sw1(SW[1]), 
 	.VGA_R(VGA_R), 
 	.VGA_G(VGA_G), 
 	.VGA_B(VGA_B), 
@@ -169,7 +170,8 @@ Top top0(
 	.VGA_BLANK_N(VGA_BLANK_N), 
 	.VGA_HS(VGA_HS), 
 	.VGA_VS(VGA_VS), 
-	.VGA_SYNC_N(VGA_SYNC_N)
+	.VGA_SYNC_N(VGA_SYNC_N),
+	.state(state)
 );
 
 vga_test my_qsys(
@@ -178,12 +180,11 @@ vga_test my_qsys(
 	.altpll_0_c0_clk(CLK_25)
 );
 
-
-// SevenHexDecoder seven_dec0(
-	// .i_hex(random_value),
-	// .o_seven_ten(HEX1),
-	// .o_seven_one(HEX0)
-// );
+SevenHexDecoder seven_dec0(
+	.i_hex(state),
+	.o_seven_ten(HEX1),
+	.o_seven_one(HEX0)
+);
 
 assign HEX2 = '1;
 assign HEX3 = '1;
