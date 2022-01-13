@@ -40,22 +40,33 @@ module Top (
     localparam OPEN = 3'd4;
     logic [2:0] state_r, state_w;
     logic [19:0] screen_height_r, screen_height_w; // doodle height: spry_r, speed: y_motion_r
+    logic [19:0] now_plate_left_r, now_plate_left_w, now_plate_right_r, now_plate_right_w, now_plate_bg_height_r, now_plate_bg_height_w; // which plate the doodle is on
+    // logic prev_jump_pos = (spry_r+SPR_HEIGHT) <= platey_r;
+    // logic now_jump_pos = (spry_r+SPR_HEIGHT) > platey_r;
+    logic jump_pos_r, jump_pos_w;
     always_comb begin
         if (frame) begin
+            jump_pos_w = (spry_r+SPR_HEIGHT) <= platey_r;
             case (state_r)
                 OPEN: begin
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
                     if (i_sw0) state_w = INIT;
                     else state_w = OPEN;
                 end
                 INIT: begin
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
-                    if ((spry_r+SPR_HEIGHT) <= platey_r && (spry_r+SPR_HEIGHT+10) > platey_r && y_motion_r > 0 && (sprx_r+SPR_WIDTH) > platex_r && sprx_r < (platex_r+PLATE_WIDTH)) begin
+                    if (jump_pos_r && (spry_r+SPR_HEIGHT) > platey_r && (sprx_r+SPR_WIDTH) > platex_r && sprx_r < (platex_r+PLATE_WIDTH)) begin
                         state_w = JUMP;
                     end
                     else state_w = INIT;
                 end 
                 JUMP: begin
+                    now_plate_right_w = platex_r + PLATE_WIDTH;
+                    now_plate_left_w = platex_r;
                     if (platey_r >= 420) begin
                         screen_height_w = 87; 
                         state_w = NORMAL;
@@ -66,34 +77,52 @@ module Top (
                     end
                 end
                 NORMAL: begin
-                    // screen_height_w = screen_height_r;
-                    screen_height_w = 87;
-                    state_w = state_r;
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
+                    screen_height_w = plate_y[0] - 13;
+                    if ((spry_r+SPR_HEIGHT) >= 430 && (sprx_r>now_plate_right_r || (sprx_r+SPR_WIDTH)<now_plate_left_r)) begin
+                    // if ((spry_r+SPR_HEIGHT) >= 430) begin
+                        state_w = DEAD;
+                    end
+                    else state_w = state_r;
                 end
                 DEAD: begin
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
-                    state_w = INIT;
+                    state_w = state_r;
                 end
                 default: begin
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
                     state_w = state_r;
                 end
             endcase
         end
         else begin
+            jump_pos_w = jump_pos_r;
+            now_plate_right_w = now_plate_right_r;
+            now_plate_left_w = now_plate_left_r;
             screen_height_w = screen_height_r;
             state_w = state_r;
             if (i_sw0 && state_r == OPEN) state_w = INIT;
         end
     end
-    always_ff begin
+	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
         if (!i_rst_n) begin
             state_r <= OPEN;
             screen_height_r <= 20'b0;
+            now_plate_left_r <= 0;
+            now_plate_right_r <= 640;
+            jump_pos_r <= 1'b0;
         end
         else begin
             state_r <= state_w;
             screen_height_r <= screen_height_w;
+            now_plate_left_r <= now_plate_left_w;
+            now_plate_right_r <= now_plate_right_w;
+            jump_pos_r <= jump_pos_w;
         end
     end
 	 
@@ -256,10 +285,15 @@ module Top (
             else begin
                 y_motion_w = 0;
             end
-            spry_w = ((spry_r + y_motion_r) >= 376) ?    376 : 
-                                     (spry_r > 376) ?    376 :
-                                     (spry_r < 250) ?    250 :
-                                  (state_r == JUMP) ? spry_r : (spry_r + y_motion_r);
+            if (state != DEAD) begin
+                spry_w = ((spry_r + y_motion_r) >= 376) ?    376 : 
+                         ((spry_r + y_motion_r) <  250) ?    250 :
+                                    (state_r == JUMP)   ? spry_r : (spry_r + y_motion_r);
+            end
+            else begin
+                if (spry_r < 445) spry_w = spry_r + 10;
+                else spry_w = 480;
+            end
         end
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
@@ -281,6 +315,14 @@ module Top (
 	end
 
 
+    logic [19:0] plate_x [8];
+    logic [19:0] plate_y [8]; // bg_height
+    localparam PLATE_POS_X_FILE = "plate_pos_x.mem";
+    localparam PLATE_POS_Y_FILE = "plate_pos_y.mem";
+    initial begin
+        $readmemh(PLATE_POS_X_FILE, plate_x);
+        $readmemh(PLATE_POS_Y_FILE, plate_y);
+    end
     // plate
     parameter PLATE_FILE = "plate.mem";
     localparam PLATE_WIDTH = 64;
@@ -336,20 +378,20 @@ module Top (
         .drawing(plate_drawing), 
         .done()
     );
-    localparam PLATE_BG_HEIGHT = 100;
+    // localparam PLATE_BG_HEIGHT = 100;
     logic plate_trans_r, plate_trans_w;
     always_comb begin
         plate_trans_w = (plate_pix == PLATE_TRANS);
         plate_start = (line && sy == platey_r);
         platex_w = platex_r;
-        platey_w = 469 - 16 - (PLATE_BG_HEIGHT - screen_height_r);
+        platey_w = 469 - 16 - (plate_y[0] - screen_height_r);
         plate_base_addr_w = 0;
         plate_drawing_w = plate_drawing;
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
 		if (!i_rst_n) begin
             platex_r <= 250;
-            platey_r <= 469 - 16 - 100; // 353
+            platey_r <= 469 - 16 - plate_y[0]; // 353
         end
 		else begin
             plate_trans_r <= plate_trans_w;
