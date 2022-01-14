@@ -35,11 +35,12 @@ module Top (
     assign test = monster_y[0];
 
     // game FSM
-    localparam INIT = 3'd0;
-    localparam JUMP = 3'd1;
-    localparam NORMAL = 3'd2;
-    localparam DEAD = 3'd3;
-    localparam OPEN = 3'd4;
+    localparam OPEN = 3'd0;
+    localparam INIT = 3'd1;
+    localparam JUMP = 3'd2;
+    localparam NORMAL = 3'd3;
+    localparam DEAD = 3'd4;
+    localparam FINAL = 3'd5;
     logic [2:0] state_r, state_w;
     logic [19:0] screen_height_r, screen_height_w; // doodle height: spry_r, speed: y_motion_r
     logic [19:0] now_plate_left_r, now_plate_left_w, now_plate_right_r, now_plate_right_w, now_plate_bg_height_r, now_plate_bg_height_w; // which plate the doodle is on
@@ -132,6 +133,14 @@ module Top (
                     now_plate_right_w = now_plate_right_r;
                     now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
+                    if (spry_r == 480) state_w = FINAL;
+                    else state_w = state_r;
+                end
+                FINAL: begin
+                    now_plate_index_w = now_plate_index_r;
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
+                    screen_height_w = screen_height_r;
                     state_w = state_r;
                 end
                 default: begin
@@ -204,6 +213,8 @@ module Top (
     parameter TITLE_TRANS = 0;
     parameter MONSTER_TRANS = 0;
     parameter MONSTER2_TRANS = 0;
+    parameter GAMEOVER_TRANS = 0;
+    parameter PLAYAGAIN_TRANS = 0;
     logic [7:0] r_r, r_w, g_r, g_w, b_r, b_w;
     
     logic [PLATE_NUM-1:0] plate_draw;
@@ -273,6 +284,17 @@ module Top (
                       (monster_draw_display)                                 ? {monster_color_display[3:0], 4'b0} :
                       (monster2_draw_display)                                ? {monster2_color_display[3:0], 4'b0} :
                       (plate_draw_display)                                   ? {plate_color_display[3:0], 4'b0} : bg_b_r;   
+            end
+            FINAL: begin
+                r_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)                   ? {spr_colr[11:8], 4'b0}       : 
+                      (gameover_drawing_r && !(gameover_pix == GAMEOVER_TRANS) && de)    ? {gameover_colr[11:8], 4'b0}  : 
+                      (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[11:8], 4'b0} : bg_r_r;
+                g_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)                   ? {spr_colr[7:4], 4'b0}        : 
+                      (gameover_drawing_r && !(gameover_pix == GAMEOVER_TRANS) && de)    ? {gameover_colr[7:4], 4'b0}   : 
+                      (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[7:4], 4'b0}  : bg_g_r;
+                b_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)                   ? {spr_colr[3:0], 4'b0}        : 
+                      (gameover_drawing_r && !(gameover_pix == GAMEOVER_TRANS) && de)    ? {gameover_colr[3:0], 4'b0}   : 
+                      (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[3:0], 4'b0}  : bg_b_r;
             end
             default: begin
                 r_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[11:8], 4'b0} :
@@ -391,14 +413,19 @@ module Top (
             else begin
                 y_motion_w = 0;
             end
-            if (state != DEAD) begin
+            if (state == FINAL) begin
+                if (spry_r == 480) spry_w = 0;
+                else if (spry_r != 400) spry_w = spry_r + 10;
+                else spry_w = spry_r;
+            end
+            else if (state == DEAD) begin
+                if (spry_r < 445) spry_w = spry_r + 10;
+                else spry_w = 480;
+            end
+            else begin
                 spry_w = ((spry_r + y_motion_r) >= 376) ?    376 : 
                          ((spry_r + y_motion_r) <  220) ?    220 :
                                     (state_r == JUMP)   ? spry_r : (spry_r + y_motion_r);
-            end
-            else begin
-                if (spry_r < 445) spry_w = spry_r + 10;
-                else spry_w = 480;
             end
         end
     end
@@ -419,9 +446,12 @@ module Top (
         end
 	end
 
+    // bullet
+
+
 
     // plate
-    localparam PLATE_NUM = 10;
+    localparam PLATE_NUM = 20;
     logic [19:0] plate_x_init [PLATE_NUM];
     logic [19:0] plate_y_init [PLATE_NUM]; // bg_height
     logic [COLR_BITS-1:0] plate_pix [PLATE_NUM];
@@ -469,7 +499,7 @@ module Top (
 
 
     // monster
-    localparam MONSTER_NUM = 6;
+    localparam MONSTER_NUM = 5;
     logic [19:0] monster_x_init [MONSTER_NUM];
     logic [19:0] monster_y_init [MONSTER_NUM]; // bg_height
     logic [COLR_BITS-1:0] monster_pix [MONSTER_NUM];
@@ -515,7 +545,7 @@ module Top (
 
 
     // monster2
-    localparam MONSTER2_NUM = 2;
+    localparam MONSTER2_NUM = 5;
     logic [19:0] monster2_x_init [MONSTER2_NUM];
     logic [19:0] monster2_y_init [MONSTER2_NUM]; // bg_height
     logic [COLR_BITS-1:0] monster2_pix [MONSTER2_NUM];
@@ -561,81 +591,70 @@ module Top (
 
 
     // title
-    parameter TITLE_FILE = "title.mem";
-    localparam TITLE_WIDTH = 512;
-    localparam TITLE_HEIGHT = 128;
-    localparam TITLE_FRAMES = 1;
-    localparam TITLE_PIXELS = TITLE_WIDTH * TITLE_HEIGHT;
-    localparam TITLE_DEPTH = TITLE_PIXELS * TITLE_FRAMES;
-    localparam TITLE_ADDRW = $clog2(TITLE_DEPTH);
-    logic [COLR_BITS-1:0] title_rom_data;
-    logic [TITLE_ADDRW-1:0] title_rom_addr;
-    rom_sync #(
-        .WIDTH(COLR_BITS), 
-        .DEPTH(TITLE_DEPTH), 
-        .INIT_F(TITLE_FILE)
-    ) title_rom (
-        .clk(i_clk_25), 
-        .addr(title_rom_addr), 
-        .data(title_rom_data)
-    );
-    parameter TITLE_PALETTE = "title_palette.mem";
-    logic [COLR_BITS-1:0] title_pix;
+    logic [3:0] title_pix;
     logic [11:0] title_colr;
-	rom_async #(
-		.WIDTH(12), 
-		.DEPTH(16), 
-		.INIT_F(TITLE_PALETTE), 
-        .ADDRW(4)
-    ) title_clut(
-        .addr(title_pix), 
-        .data(title_colr)
-    );
-    parameter TITLE_SCALE_X = 1;
-    parameter TITLE_SCALE_Y = 1;
-    logic signed [CORDW-1:0] titlex_r, titlex_w, titley_r, titley_w;
-    logic title_start, title_drawing, title_drawing_w, title_drawing_r;
-    sprite_1 #(
-        .WIDTH(TITLE_WIDTH), 
-        .HEIGHT(TITLE_HEIGHT), 
-        .COLR_BITS(COLR_BITS), 
-        .SCALE_X(TITLE_SCALE_X), 
-        .SCALE_Y(TITLE_SCALE_Y), 
-        .ADDRW(TITLE_ADDRW)
-    ) title(
-        .clk(i_clk_25), 
-        .rst(i_rst_n), 
-        .start(title_start), 
+    logic title_drawing_r;
+    item #(
+        .FILE("title.mem"), 
+        .PALETTE_FILE("title_palette.mem")
+    ) title (
+        .i_clk_25(i_clk_25), 
+        .i_rst_n(i_rst_n), 
         .sx(sx), 
-        .sprx(titlex_r),
-        .data_in(title_rom_data), 
-        .pos(title_rom_addr),  
+        .sy(sy), 
+        .x_init(60), 
+        .y_init(100), 
+        .line(line), 
         .pix(title_pix), 
-        .drawing(title_drawing), 
-        .done()
+        .colr(title_colr), 
+        .drawing_r(title_drawing_r)
     );
-    logic title_trans_r, title_trans_w;
-    always_comb begin
-        title_trans_w = (title_pix == TITLE_TRANS);
-        title_start = (line && sy == titley_r);
-        titlex_w = titlex_r;
-        titley_w = titley_r;
-        title_drawing_w = title_drawing;
-    end
-	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
-		if (!i_rst_n) begin
-            titlex_r <= 60;
-            titley_r <= 100;
-        end
-		else begin
-            title_trans_r <= title_trans_w;
-            titlex_r <= titlex_w;
-            titley_r <= titley_w;
-            title_drawing_r <= title_drawing_w;
-        end
-	end
+
+    // gameover
+    logic [3:0] gameover_pix;
+    logic [11:0] gameover_colr;
+    logic gameover_drawing_r;
+    item #(
+        .FILE("gameover.mem"), 
+        .PALETTE_FILE("gameover_palette.mem"), 
+        .HEIGHT(177)
+    ) gameover (
+        .i_clk_25(i_clk_25), 
+        .i_rst_n(i_rst_n), 
+        .sx(sx), 
+        .sy(sy), 
+        .x_init(60), 
+        .y_init(50), 
+        .line(line), 
+        .pix(gameover_pix), 
+        .colr(gameover_colr), 
+        .drawing_r(gameover_drawing_r)
+    );
+
+    // playagain
+    logic [3:0] playagain_pix;
+    logic [11:0] playagain_colr;
+    logic playagain_drawing_r;
+    item #(
+        .FILE("playagain.mem"), 
+        .PALETTE_FILE("playagain_palette.mem"), 
+        .WIDTH(256), 
+        .HEIGHT(100)
+    ) playagain (
+        .i_clk_25(i_clk_25), 
+        .i_rst_n(i_rst_n), 
+        .sx(sx), 
+        .sy(sy), 
+        .x_init(60), 
+        .y_init(280), 
+        .line(line), 
+        .pix(playagain_pix), 
+        .colr(playagain_colr), 
+        .drawing_r(playagain_drawing_r)
+    );
 
 
+    // monitor
     logic monitor_start_r, monitor_start_w;
     assign monitor_start_w = monitor_start_r;
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
@@ -646,7 +665,6 @@ module Top (
             monitor_start_r <= monitor_start_w;       
         end
     end
-    // monitor
     display_1 display0(
         .clk_25M(i_clk_25), 
         .rst(i_rst_n), 
