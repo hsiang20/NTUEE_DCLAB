@@ -37,8 +37,6 @@ module plate (
         .data(plate_rom_data)
     );
     parameter PLATE_PALETTE = "plate_palette.mem";
-    // logic [COLR_BITS-1:0] plate_pix;
-    // logic [11:0] plate_colr;
 	rom_async #(
 		.WIDTH(12), 
 		.DEPTH(16), 
@@ -71,7 +69,6 @@ module plate (
         .drawing(plate_drawing), 
         .done()
     );
-    // localparam PLATE_BG_HEIGHT = 100;
     always_comb begin
         plate_start = (line && sy == plate_y_r);
         plate_x_w = plate_x_r;
