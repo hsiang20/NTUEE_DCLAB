@@ -138,7 +138,11 @@ module DE2_115 (
 
 logic keydown_0, keydown_2;
 logic [2:0] state;
+logic [3:0] test;
 logic CLK_25;
+logic gpio_test;
+assign gpio_test = EX_IO[0];
+assign EX_IO[0] = 1'bZ;
 
 Debounce deb0(
 	.i_in(KEY[0]),
@@ -171,7 +175,8 @@ Top top0(
 	.VGA_HS(VGA_HS), 
 	.VGA_VS(VGA_VS), 
 	.VGA_SYNC_N(VGA_SYNC_N),
-	.state(state)
+	.state(state), 
+	.test(test)
 );
 
 vga_test my_qsys(
@@ -186,12 +191,17 @@ SevenHexDecoder seven_dec0(
 	.o_seven_one(HEX0)
 );
 
-assign HEX2 = '1;
-assign HEX3 = '1;
+SevenHexDecoder seven_dec1(
+	.i_hex(test),
+	.o_seven_ten(HEX3),
+	.o_seven_one(HEX2)
+);
+
+
 assign HEX4 = '1;
 assign HEX5 = '1;
 assign HEX6 = '1;
-assign HEX7 = '1;
+assign HEX7 = gpio_test? '0 : '1;
 
 `ifdef DUT_FINAL
 	initial begin

@@ -17,10 +17,12 @@ module Top (
     output VGA_HS, 
     output VGA_VS, 
     output VGA_SYNC_N, 
-	output [2:0] state
+	output [2:0] state, 
+    output [3:0] test
 );
     // display sync signals and coordinates
     localparam CORDW = 16; // screen coordinate width
+    localparam PLATE_NUM = 20;
     parameter COLR_BITS = 4;
     parameter H_RES = 640;
     logic [5:0] cnt_anim_r, cnt_anim_w;
@@ -31,6 +33,7 @@ module Top (
     assign VGA_B = b_r;
 	assign VGA_CLK = i_clk_25;
     assign state = state_r;
+    assign test = plate_index_base_r;
 
     // game FSM
     localparam INIT = 3'd0;
@@ -41,14 +44,21 @@ module Top (
     logic [2:0] state_r, state_w;
     logic [19:0] screen_height_r, screen_height_w; // doodle height: spry_r, speed: y_motion_r
     logic [19:0] now_plate_left_r, now_plate_left_w, now_plate_right_r, now_plate_right_w, now_plate_bg_height_r, now_plate_bg_height_w; // which plate the doodle is on
-    // logic prev_jump_pos = (spry_r+SPR_HEIGHT) <= platey_r;
-    // logic now_jump_pos = (spry_r+SPR_HEIGHT) > platey_r;
-    logic jump_pos_r, jump_pos_w;
+    logic [10:0] now_plate_index_r, now_plate_index_w;
+    logic [PLATE_NUM-1:0] jump_pos_r, jump_pos_w;
+    logic [PLATE_NUM-1:0] jump_on_plate;
+    genvar k;
+    generate
+        for (k=0; k<PLATE_NUM; k=k+1) begin: which_plate_is_jumping
+            assign jump_on_plate[k] = (state_r != JUMP) && frame && jump_pos_r[k] && (spry_r+SPR_HEIGHT) > plate_y[k] && (sprx_r+SPR_WIDTH) > plate_x[k] && sprx_r < (plate_x[k]+PLATE_WIDTH);
+            assign jump_pos_w[k] = (frame)? (spry_r+SPR_HEIGHT) <= plate_y[k] : jump_pos_r[k];
+        end
+    endgenerate
     always_comb begin
         if (frame) begin
-            jump_pos_w = (spry_r+SPR_HEIGHT) <= platey_r;
             case (state_r)
                 OPEN: begin
+                    now_plate_index_w = now_plate_index_r;
                     now_plate_right_w = now_plate_right_r;
                     now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
@@ -59,40 +69,87 @@ module Top (
                     now_plate_right_w = now_plate_right_r;
                     now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
-                    if (jump_pos_r && (spry_r+SPR_HEIGHT) > platey_r && (sprx_r+SPR_WIDTH) > platex_r && sprx_r < (platex_r+PLATE_WIDTH)) begin
+                    // if (jump_pos_r && (spry_r+SPR_HEIGHT) > plate_y[0] && (sprx_r+SPR_WIDTH) > plate_x[0] && sprx_r < (plate_x[0]+PLATE_WIDTH)) begin
+                    if (jump_on_plate != 0) begin
+                        now_plate_index_w = now_plate_index_r;
+                        for (integer n=0; n<PLATE_NUM; n=n+1) begin
+                            if (jump_on_plate[n]) begin
+                                now_plate_index_w = n;
+                            end
+                        end
+                        // now_plate_index_w = jump_on_plate[19] ? 19 :
+                        //                     jump_on_plate[18] ? 18 :
+                        //                     jump_on_plate[17] ? 17 :
+                        //                     jump_on_plate[16] ? 16 :
+                        //                     jump_on_plate[15] ? 15 :
+                        //                     jump_on_plate[14] ? 14 :
+                        //                     jump_on_plate[13] ? 13 :
+                        //                     jump_on_plate[12] ? 12 :
+                        //                     jump_on_plate[11] ? 11 :
+                        //                     jump_on_plate[10] ? 10 :
+                        //                     jump_on_plate[9] ? 9 :
+                        //                     jump_on_plate[8] ? 8 :
+                        //                     jump_on_plate[7] ? 7 :
+                        //                     jump_on_plate[6] ? 6 :
+                        //                     jump_on_plate[5] ? 5 :
+                        //                     jump_on_plate[4] ? 4 :
+                        //                     jump_on_plate[3] ? 3 :
+                        //                     jump_on_plate[2] ? 2 :
+                        //                     jump_on_plate[1] ? 1 :
+                        //                     jump_on_plate[0] ? 0 : now_plate_index_r;
                         state_w = JUMP;
                     end
-                    else state_w = INIT;
+                    else begin
+                        state_w = INIT;
+                        now_plate_index_w = now_plate_index_r;
+                    end
                 end 
                 JUMP: begin
-                    now_plate_right_w = platex_r + PLATE_WIDTH;
-                    now_plate_left_w = platex_r;
-                    if (platey_r >= 420) begin
-                        screen_height_w = 87; 
+                    // now_plate_index_w = now_plate_index_r;
+                    now_plate_index_w = now_plate_index_r;
+                    now_plate_right_w = plate_x[now_plate_index_r] + PLATE_WIDTH;
+                    now_plate_left_w = plate_x[now_plate_index_r];
+                    if (plate_y[now_plate_index_r] >= 420) begin
+                        screen_height_w = plate_y_init[now_plate_index_r] - 13; 
                         state_w = NORMAL;
                     end
                     else begin
-                        screen_height_w = screen_height_r + y_motion_r;
+                        // screen_height_w = screen_height_r + y_motion_r;
+                        screen_height_w = screen_height_r + 15;
                         state_w = JUMP;
                     end
                 end
                 NORMAL: begin
                     now_plate_right_w = now_plate_right_r;
                     now_plate_left_w = now_plate_left_r;
-                    screen_height_w = plate_y[0] - 13;
+                    screen_height_w = plate_y_init[now_plate_index_r] - 13;
                     if ((spry_r+SPR_HEIGHT) >= 430 && (sprx_r>now_plate_right_r || (sprx_r+SPR_WIDTH)<now_plate_left_r)) begin
-                    // if ((spry_r+SPR_HEIGHT) >= 430) begin
+                        now_plate_index_w = now_plate_index_r;
                         state_w = DEAD;
                     end
-                    else state_w = state_r;
+                    else if (jump_on_plate != 0) begin
+                        now_plate_index_w = now_plate_index_r;
+                        for (integer n=0; n<PLATE_NUM; n=n+1) begin
+                            if (jump_on_plate[n]) begin
+                                now_plate_index_w = n;
+                            end
+                        end
+                        state_w = JUMP;
+                    end
+                    else begin
+                        now_plate_index_w = now_plate_index_r;
+                        state_w = state_r;
+                    end
                 end
                 DEAD: begin
+                    now_plate_index_w = now_plate_index_r;
                     now_plate_right_w = now_plate_right_r;
                     now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
                     state_w = state_r;
                 end
                 default: begin
+                    now_plate_index_w = now_plate_index_r;
                     now_plate_right_w = now_plate_right_r;
                     now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
@@ -101,7 +158,7 @@ module Top (
             endcase
         end
         else begin
-            jump_pos_w = jump_pos_r;
+            now_plate_index_w = now_plate_index_r;
             now_plate_right_w = now_plate_right_r;
             now_plate_left_w = now_plate_left_r;
             screen_height_w = screen_height_r;
@@ -115,13 +172,15 @@ module Top (
             screen_height_r <= 20'b0;
             now_plate_left_r <= 0;
             now_plate_right_r <= 640;
-            jump_pos_r <= 1'b0;
+            jump_pos_r <= 8'b0;
+            now_plate_index_r <= 11'b0; 
         end
         else begin
             state_r <= state_w;
             screen_height_r <= screen_height_w;
             now_plate_left_r <= now_plate_left_w;
             now_plate_right_r <= now_plate_right_w;
+            now_plate_index_r <= now_plate_index_w; 
             jump_pos_r <= jump_pos_w;
         end
     end
@@ -158,26 +217,49 @@ module Top (
     parameter PLATE_TRANS = 0;
     parameter TITLE_TRANS = 0;
     logic [7:0] r_r, r_w, g_r, g_w, b_r, b_w;
+    
+    logic [PLATE_NUM-1:0] plate_draw;
+    logic plate_draw_display;
+    logic [11:0] plate_color_draw [PLATE_NUM];
+    logic [11:0] plate_color_display;
+    assign plate_draw_display = !(plate_draw == 0);
+    // assign plate_color_display = plate_color_draw[0] | plate_color_draw[1] | plate_color_draw[2] |plate_color_draw[3] | plate_color_draw[4] | plate_color_draw[5] | plate_color_draw[6] | plate_color_draw[7] | 
+    //                             plate_color_draw[8] | plate_color_draw[9] | plate_color_draw[10] |plate_color_draw[11] | plate_color_draw[12] | plate_color_draw[13] | plate_color_draw[14] | plate_color_draw[15] |
+    //                             plate_color_draw[16] | plate_color_draw[17] | plate_color_draw[18] |plate_color_draw[19];
+    genvar j;
+    generate
+        for (j=0; j<PLATE_NUM; j=j+1) begin : plate_color
+            assign plate_draw[j] = (plate_drawing_r[j] && !(plate_pix[j]==PLATE_TRANS) && de);
+            assign plate_color_draw[j] = (plate_draw[j])? plate_colr[j] : 12'b0;
+        end
+    endgenerate
+
     always_comb begin
+        plate_color_display = plate_color_draw[0];
+        for (integer m=0; m<PLATE_NUM; m=m+1) begin
+            if (plate_color_draw[m]) begin
+                plate_color_display = plate_color_draw[m];
+            end
+        end
         case (state_r) 
             OPEN: begin
                 r_w = (title_drawing_r && !(title_pix == TITLE_TRANS) && de) ? {title_colr[11:8], 4'b0} : 
-                      (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)       ? {spr_colr[11:8], 4'b0}   : 
-                      (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[11:8], 4'b0} : bg_r_r;
+                      (spr_drawing_r && !(spr_pix[0] == SPR_TRANS) && de)    ? {spr_colr[11:8], 4'b0}   : 
+                      (plate_draw_display)                                   ? {plate_color_display[11:8], 4'b0} : bg_r_r;   
                 g_w = (title_drawing_r && !(title_pix == TITLE_TRANS) && de) ? {title_colr[7:4], 4'b0}  :
                       (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)       ? {spr_colr[7:4], 4'b0}    : 
-                      (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[7:4], 4'b0}  : bg_g_r;
+                      (plate_draw_display)                                   ? {plate_color_display[7:4], 4'b0} : bg_g_r;   
                 b_w = (title_drawing_r && !(title_pix == TITLE_TRANS) && de) ? {title_colr[3:0], 4'b0}  :
                       (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)       ? {spr_colr[3:0], 4'b0}    : 
-                      (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[3:0], 4'b0}  : bg_b_r;
+                      (plate_draw_display)                                   ? {plate_color_display[3:0], 4'b0} : bg_b_r;   
             end
             default: begin
                 r_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[11:8], 4'b0} : 
-                    (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[11:8], 4'b0} : bg_r_r;
+                      (plate_draw_display)                                   ? {plate_color_display[11:8], 4'b0} : bg_r_r;   
                 g_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[7:4], 4'b0} : 
-                    (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[7:4], 4'b0} : bg_g_r;
+                      (plate_draw_display)                                   ? {plate_color_display[7:4], 4'b0} : bg_g_r;   
                 b_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[3:0], 4'b0} : 
-                    (plate_drawing_r && !(plate_pix == PLATE_TRANS) && de) ? {plate_colr[3:0], 4'b0} : bg_b_r;
+                      (plate_draw_display)                                   ? {plate_color_display[3:0], 4'b0} : bg_b_r;   
             end
         endcase
     end
@@ -254,7 +336,6 @@ module Top (
     logic signed [10:0] y_motion_r, y_motion_w;
     always_comb begin
         spr_start = (line && sy == spry_r);
-        cnt_anim_w = cnt_anim_r;
         spr_base_addr_w = 0;
         sprx_w = sprx_r;
         spry_w = spry_r;
@@ -262,17 +343,15 @@ module Top (
         spr_drawing_w = spr_drawing;
         if (frame) begin
             if (!i_key2) begin
-                sprx_w = (sprx_r < H_RES) ? sprx_r + 3 : -SPR_WIDTH * SCALE_X;
-                cnt_anim_w = cnt_anim_r + 1;
+                sprx_w = (sprx_r < H_RES) ? sprx_r + 5 : -SPR_WIDTH * SCALE_X;
             end
             else if (!i_key3) begin
-                sprx_w = (sprx_r > -SPR_WIDTH*SCALE_X) ? sprx_r - 3 : H_RES;
-                cnt_anim_w = cnt_anim_r + 1;
+                sprx_w = (sprx_r > -SPR_WIDTH*SCALE_X) ? sprx_r - 5 : H_RES;
             end
             if (i_sw0) begin
                 if (state_r == JUMP) begin
                     if (y_motion_r == 0) y_motion_w = 1;
-                    else y_motion_w = ((spry_r - platey_r) >> 3) + 1;
+                    else y_motion_w = ((spry_r - plate_y[now_plate_index_r]) >> 3) + 1;
                 end
                 else begin
                     if (spry_r >= 376) y_motion_w = -1;
@@ -305,7 +384,6 @@ module Top (
         end
 		else begin
             spr_trans_r <= spr_trans_w;
-            cnt_anim_r <= cnt_anim_w;
             spr_base_addr_r <= spr_base_addr_w;
             sprx_r <= sprx_w;
             spry_r <= spry_w;
@@ -315,92 +393,148 @@ module Top (
 	end
 
 
-    logic [19:0] plate_x [8];
-    logic [19:0] plate_y [8]; // bg_height
+    // plate
+    logic [19:0] plate_x_init [PLATE_NUM];
+    logic [19:0] plate_y_init [PLATE_NUM]; // bg_height
+    logic [COLR_BITS-1:0] plate_pix [PLATE_NUM];
+    logic [11:0] plate_colr [PLATE_NUM];
+    logic plate_drawing_r [PLATE_NUM];
+    logic signed [15:0] plate_x [PLATE_NUM];
+    logic signed [15:0] plate_y [PLATE_NUM];
+    logic [10:0] plate_index_base_r; 
+    logic [10:0] plate_index_base_w;
     localparam PLATE_POS_X_FILE = "plate_pos_x.mem";
     localparam PLATE_POS_Y_FILE = "plate_pos_y.mem";
     initial begin
-        $readmemh(PLATE_POS_X_FILE, plate_x);
-        $readmemh(PLATE_POS_Y_FILE, plate_y);
+        $readmemh(PLATE_POS_X_FILE, plate_x_init);
+        $readmemh(PLATE_POS_Y_FILE, plate_y_init);
     end
-    // plate
-    parameter PLATE_FILE = "plate.mem";
     localparam PLATE_WIDTH = 64;
     localparam PLATE_HEIGHT = 16;
     localparam PLATE_FRAMES = 1;
     localparam PLATE_PIXELS = PLATE_WIDTH * PLATE_HEIGHT;
     localparam PLATE_DEPTH = PLATE_PIXELS * PLATE_FRAMES;
     localparam PLATE_ADDRW = $clog2(PLATE_DEPTH);
-    logic [COLR_BITS-1:0] plate_rom_data;
-    logic [PLATE_ADDRW-1:0] plate_rom_addr;
-    logic [PLATE_ADDRW-1:0] plate_base_addr_r, plate_base_addr_w;
-    rom_sync #(
-        .WIDTH(COLR_BITS), 
-        .DEPTH(PLATE_DEPTH), 
-        .INIT_F(PLATE_FILE)
-    ) plate_rom (
-        .clk(i_clk_25), 
-        .addr(plate_base_addr_r + plate_rom_addr), 
-        .data(plate_rom_data)
-    );
-    parameter PLATE_PALETTE = "plate_palette.mem";
-    logic [COLR_BITS-1:0] plate_pix;
-    logic [11:0] plate_colr;
-	rom_async #(
-		.WIDTH(12), 
-		.DEPTH(16), 
-		.INIT_F(PLATE_PALETTE), 
-        .ADDRW(4)
-    ) plate_clut(
-        .addr(plate_pix), 
-        .data(plate_colr)
-    );
-    parameter PLATE_SCALE_X = 1;
-    parameter PLATE_SCALE_Y = 1;
-    logic signed [CORDW-1:0] platex_r, platex_w, platey_r, platey_w;
-    logic plate_start, plate_drawing, plate_drawing_w, plate_drawing_r;
-    sprite_1 #(
-        .WIDTH(PLATE_WIDTH), 
-        .HEIGHT(PLATE_HEIGHT), 
-        .COLR_BITS(COLR_BITS), 
-        .SCALE_X(PLATE_SCALE_X), 
-        .SCALE_Y(PLATE_SCALE_Y), 
-        .ADDRW(PLATE_ADDRW)
-    ) plate(
-        .clk(i_clk_25), 
-        .rst(i_rst_n), 
-        .start(plate_start), 
-        .sx(sx), 
-        .sprx(platex_r),
-        .data_in(plate_rom_data), 
-        .pos(plate_rom_addr),  
-        .pix(plate_pix), 
-        .drawing(plate_drawing), 
-        .done()
-    );
-    // localparam PLATE_BG_HEIGHT = 100;
-    logic plate_trans_r, plate_trans_w;
     always_comb begin
-        plate_trans_w = (plate_pix == PLATE_TRANS);
-        plate_start = (line && sy == platey_r);
-        platex_w = platex_r;
-        platey_w = 469 - 16 - (plate_y[0] - screen_height_r);
-        plate_base_addr_w = 0;
-        plate_drawing_w = plate_drawing;
+        if (state_r == NORMAL && now_plate_index_r != 0) begin
+            plate_index_base_w = plate_index_base_r + now_plate_index_r;
+        end
+        else plate_index_base_w = plate_index_base_r; 
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
 		if (!i_rst_n) begin
-            platex_r <= 250;
-            platey_r <= 469 - 16 - plate_y[0]; // 353
+            plate_index_base_r <= 0;
         end
-		else begin
-            plate_trans_r <= plate_trans_w;
-            plate_base_addr_r <= plate_base_addr_w;
-            platex_r <= platex_w;
-            platey_r <= platey_w;
-            plate_drawing_r <= plate_drawing_w;
+        else begin
+            plate_index_base_r <= plate_index_base_w;
         end
-	end
+    end
+    
+    logic [19:0] a, b;
+    assign a = plate_x_init[0];
+    assign b = plate_y_init[0];
+    genvar i;
+    generate
+        for (i=0; i<PLATE_NUM; i=i+1) begin : plate_generator
+            logic [19:0] a, b;
+            assign a = plate_x_init[i];
+            assign b = plate_y_init[i];
+            plate plate1(
+                .clk(i_clk_25), 
+                .i_rst_n(i_rst_n), 
+                .sx(sx), 
+                .sy(sy), 
+                .plate_x_init(a), 
+                .plate_y_init(b), 
+                .line(line), 
+                .screen_height(screen_height_r), 
+                .plate_pix(plate_pix[i]), 
+                .plate_colr(plate_colr[i]), 
+                .plate_drawing_r(plate_drawing_r[i]), 
+                .plate_x(plate_x[i]), 
+                .plate_y(plate_y[i])
+            );
+        end
+    endgenerate
+
+    // plate
+    // parameter PLATE_FILE = "plate.mem";
+    // localparam PLATE_WIDTH = 64;
+    // localparam PLATE_HEIGHT = 16;
+    // localparam PLATE_FRAMES = 1;
+    // localparam PLATE_PIXELS = PLATE_WIDTH * PLATE_HEIGHT;
+    // localparam PLATE_DEPTH = PLATE_PIXELS * PLATE_FRAMES;
+    // localparam PLATE_ADDRW = $clog2(PLATE_DEPTH);
+    // logic [COLR_BITS-1:0] plate_rom_data;
+    // logic [PLATE_ADDRW-1:0] plate_rom_addr;
+    // logic [PLATE_ADDRW-1:0] plate_base_addr_r, plate_base_addr_w;
+    // rom_sync #(
+    //     .WIDTH(COLR_BITS), 
+    //     .DEPTH(PLATE_DEPTH), 
+    //     .INIT_F(PLATE_FILE)
+    // ) plate_rom (
+    //     .clk(i_clk_25), 
+    //     .addr(plate_base_addr_r + plate_rom_addr), 
+    //     .data(plate_rom_data)
+    // );
+    // parameter PLATE_PALETTE = "plate_palette.mem";
+    // logic [COLR_BITS-1:0] plate_pix;
+    // logic [11:0] plate_colr;
+	// rom_async #(
+	// 	.WIDTH(12), 
+	// 	.DEPTH(16), 
+	// 	.INIT_F(PLATE_PALETTE), 
+    //     .ADDRW(4)
+    // ) plate_clut(
+    //     .addr(plate_pix), 
+    //     .data(plate_colr)
+    // );
+    // parameter PLATE_SCALE_X = 1;
+    // parameter PLATE_SCALE_Y = 1;
+    // logic signed [CORDW-1:0] platex_r, platex_w, platey_r, platey_w;
+    // logic plate_start, plate_drawing, plate_drawing_w, plate_drawing_r;
+    // sprite_1 #(
+    //     .WIDTH(PLATE_WIDTH), 
+    //     .HEIGHT(PLATE_HEIGHT), 
+    //     .COLR_BITS(COLR_BITS), 
+    //     .SCALE_X(PLATE_SCALE_X), 
+    //     .SCALE_Y(PLATE_SCALE_Y), 
+    //     .ADDRW(PLATE_ADDRW)
+    // ) plate(
+    //     .clk(i_clk_25), 
+    //     .rst(i_rst_n), 
+    //     .start(plate_start), 
+    //     .sx(sx), 
+    //     .sprx(platex_r),
+    //     .data_in(plate_rom_data), 
+    //     .pos(plate_rom_addr),  
+    //     .pix(plate_pix), 
+    //     .drawing(plate_drawing), 
+    //     .done()
+    // );
+    // // localparam PLATE_BG_HEIGHT = 100;
+    // logic plate_trans_r, plate_trans_w;
+    // always_comb begin
+    //     plate_trans_w = (plate_pix == PLATE_TRANS);
+    //     plate_start = (line && sy == platey_r);
+    //     platex_w = platex_r;
+    //     platey_w = 469 - 16 - (plate_y[0] - screen_height_r);
+    //     plate_base_addr_w = 0;
+    //     plate_drawing_w = plate_drawing;
+    // end
+	// always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+	// 	if (!i_rst_n) begin
+    //         platex_r <= 250;
+    //         platey_r <= 469 - 16 - plate_y[0]; // 353
+    //     end
+	// 	else begin
+    //         plate_trans_r <= plate_trans_w;
+    //         plate_base_addr_r <= plate_base_addr_w;
+    //         platex_r <= platex_w;
+    //         platey_r <= platey_w;
+    //         plate_drawing_r <= plate_drawing_w;
+    //     end
+	// end
 
 
     // title
