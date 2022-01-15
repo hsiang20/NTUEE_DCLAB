@@ -1,6 +1,6 @@
 import random
 
-plate_amount = 200
+plate_amount = 300
 monster_amount = 10
 
 def write_list(file, lis):
@@ -45,7 +45,7 @@ for i in range(plate_amount):
 for i in range(monster_amount):
     while True:
         sx = random.randrange(0, 576)
-        sy = random.randrange(3000, y - 200)
+        sy = random.randrange(1500, y - 200)
         for j in range(len(monster1_x)):
             if abs(sx - monster1_x[j]) < 64 and abs(sy - monster1_y[j]) < 64:
                 continue

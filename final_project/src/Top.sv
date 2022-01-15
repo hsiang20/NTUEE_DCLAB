@@ -1,14 +1,17 @@
 module Top (
     input i_clk, 
-    input i_rst_n, 
+    input i_rst_n,
+    input i_key0,  
     input i_key2, 
     input i_key3, 
     input i_sw0, 
-    input i_sw1, 
+    input i_start, 
+    input i_burst, 
+    input [2:0] i_speed, 
+    input [7:0] i_base, 
 
     // VGA
     input i_clk_25, 
-    input i_start, 
     output [7:0] VGA_R, 
     output [7:0] VGA_G, 
     output [7:0] VGA_B, 
@@ -25,14 +28,19 @@ module Top (
     parameter COLR_BITS = 4;
     parameter H_RES = 640;
     logic [5:0] cnt_anim_r, cnt_anim_w;
+    logic [19:0] count_r, count_w;
     logic signed [CORDW-1:0] sx, sy;
     logic de, line, frame;
+    logic start;
+    logic [7:0] base;
     assign VGA_R = r_r;
     assign VGA_G = g_r;
     assign VGA_B = b_r;
 	assign VGA_CLK = i_clk_25;
     assign state = state_r;
     assign test = !(bullet_y_r+12 > monster_y[0] && bullet_y_r < monster_y[0]+MONSTER_HEIGHT && (bullet_x_r+12) > monster_x[0] && bullet_x_r < (monster_x[0]+MONSTER_WIDTH));
+    assign start = i_sw0 && i_start;
+    assign base = i_base;
 
     // game FSM
     localparam OPEN = 3'd0;
@@ -55,6 +63,7 @@ module Top (
         end
     endgenerate
     always_comb begin
+        count_w = count_r + 1;
         if (frame) begin
             case (state_r)
                 OPEN: begin
@@ -62,7 +71,7 @@ module Top (
                     now_plate_right_w = now_plate_right_r;
                     now_plate_left_w = now_plate_left_r;
                     screen_height_w = screen_height_r;
-                    if (i_sw0) state_w = INIT;
+                    if (start) state_w = INIT;
                     else state_w = OPEN;
                 end
                 INIT: begin
@@ -81,6 +90,16 @@ module Top (
                     else begin
                         state_w = INIT;
                         now_plate_index_w = now_plate_index_r;
+                    end
+                    for (integer i=0; i<MONSTER_NUM; i=i+1) begin
+                        if (monster_valid_r[i] && spry_r+SPR_HEIGHT > monster_y[i] && spry_r < monster_y[i]+MONSTER_HEIGHT && (sprx_r+SPR_WIDTH) > monster_x[i] && sprx_r < (monster_x[i]+MONSTER_WIDTH)) begin
+                            state_w = DEAD;
+                        end
+                    end
+                    for (integer i=0; i<MONSTER2_NUM; i=i+1) begin
+                        if (monster2_valid_r[i] && spry_r+SPR_HEIGHT > monster2_y[i] && spry_r < monster2_y[i]+MONSTER2_HEIGHT && (sprx_r+SPR_WIDTH) > monster2_x[i] && sprx_r < (monster2_x[i]+MONSTER2_WIDTH)) begin
+                            state_w = DEAD;
+                        end
                     end
                 end 
                 JUMP: begin
@@ -158,19 +177,21 @@ module Top (
             now_plate_left_w = now_plate_left_r;
             screen_height_w = screen_height_r;
             state_w = state_r;
-            if (i_sw0 && state_r == OPEN) state_w = INIT;
+            if (start && state_r == OPEN) state_w = INIT;
         end
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
         if (!i_rst_n) begin
+            count_r <= base;
             state_r <= OPEN;
-            screen_height_r <= 20'b0;
+            screen_height_r <= count_r[12:0] + (base<<4);
             now_plate_left_r <= 0;
             now_plate_right_r <= 640;
             jump_pos_r <= 8'b0;
             now_plate_index_r <= 11'b0; 
         end
         else begin
+            count_r <= count_w;
             state_r <= state_w;
             screen_height_r <= screen_height_w;
             now_plate_left_r <= now_plate_left_w;
@@ -188,10 +209,15 @@ module Top (
         bg_g_w = bg_g_r;
         bg_b_w = bg_b_r;
         if (line) begin
-            case (sy)
-                469 : {bg_r_w, bg_g_w, bg_b_w} = 24'h87CEFF;
-                (440 + screen_height_r) : {bg_r_w, bg_g_w, bg_b_w} = 24'h7CFC00;
-            endcase
+            if (state_r == OPEN || state_r == INIT) begin
+                case (sy)
+                    469 : {bg_r_w, bg_g_w, bg_b_w} = 24'h87CEFF;
+                    440 : {bg_r_w, bg_g_w, bg_b_w} = 24'h7CFC00;
+                endcase
+            end
+            else begin
+                if (sy == 469) {bg_r_w, bg_g_w, bg_b_w} = 24'h87CEFF;
+            end
         end
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
@@ -387,6 +413,10 @@ module Top (
     );
     logic spr_trans_r, spr_trans_w;
     logic signed [10:0] y_motion_r, y_motion_w;
+    logic [2:0] speed;
+    logic direction;
+    assign direction = i_speed > 3'd3; // negative: left, positive: right
+    assign speed = (direction)? i_speed - 3'd3 : 3'd3 - i_speed;
     always_comb begin
         spr_start = (line && sy == spry_r);
         spr_base_addr_w = 0;
@@ -401,7 +431,16 @@ module Top (
             else if (!i_key3) begin
                 sprx_w = (sprx_r > -SPR_WIDTH*SCALE_X) ? sprx_r - 5 : H_RES;
             end
-            if (i_sw0) begin
+            else if (speed == 0) begin
+                sprx_w = sprx_r;
+            end
+            else if (direction) begin
+                sprx_w = (sprx_r < H_RES) ? sprx_r + (speed<<1) - 1 : -SPR_WIDTH * SCALE_X;
+            end
+            else if (!direction) begin
+                sprx_w = (sprx_r > -SPR_WIDTH*SCALE_X) ? sprx_r - (speed<<1) - 1 : H_RES;
+            end
+            if (start) begin
                 if (state_r == JUMP) begin
                     if (y_motion_r == 0) y_motion_w = 1;
                     else y_motion_w = ((spry_r - plate_y[now_plate_index_r]) >> 3) + 1;
@@ -452,16 +491,15 @@ module Top (
 
 
     // plate
-    localparam PLATE_NUM = 15;
-    logic [19:0] plate_x_init [PLATE_NUM];
-    logic [19:0] plate_y_init [PLATE_NUM]; // bg_height
+    localparam TOTAL_PLATE = 1000;
+    localparam PLATE_NUM = 100;
+    logic [19:0] plate_x_init [TOTAL_PLATE];
+    logic [19:0] plate_y_init [TOTAL_PLATE]; // bg_height
     logic [COLR_BITS-1:0] plate_pix [PLATE_NUM];
     logic [11:0] plate_colr [PLATE_NUM];
     logic plate_drawing_r [PLATE_NUM];
     logic signed [15:0] plate_x [PLATE_NUM];
     logic signed [15:0] plate_y [PLATE_NUM];
-    logic [10:0] plate_index_base_r; 
-    logic [10:0] plate_index_base_w;
     localparam PLATE_POS_X_FILE = "plate_pos_x.mem";
     localparam PLATE_POS_Y_FILE = "plate_pos_y.mem";
     initial begin
@@ -505,7 +543,7 @@ module Top (
     logic bullet_drawing_r;
     logic [15:0] bullet_x_r, bullet_x_w, bullet_y_r, bullet_y_w, bullet_opa_r, bullet_opa_w;
     logic burst;
-    assign burst = i_start;
+    assign burst = !i_key0 || i_burst;
     item #(
         .FILE("bullet.mem"), 
         .PALETTE_FILE("bullet_palette.mem"), 
@@ -526,25 +564,25 @@ module Top (
         .drawing_r(bullet_drawing_r)
     );
     always_comb begin
-        if (bullet_y_r < 6) bullet_opa_w = 1'b0;
+        if (bullet_y_r <= 1) bullet_opa_w = 1'b0;
         else if (bullet_y_r > 469) bullet_opa_w = 1'b0;
-        else if (!burst) bullet_opa_w = 1'b1;
+        else if (burst) bullet_opa_w = 1'b1;
         else bullet_opa_w = bullet_opa_r;
         if (bullet_opa_r) begin
-            if (frame) bullet_y_w = bullet_y_r - 5;
+            if (frame) bullet_y_w = bullet_y_r - 10;
             else bullet_y_w = bullet_y_r;
             bullet_x_w = bullet_x_r;
         end
         else begin
-            bullet_x_w = sprx_r + 30;
-            bullet_y_w = spry_r;
+            bullet_x_w = sprx_r + 32;
+            bullet_y_w = spry_r + 30;
         end
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
 		if (!i_rst_n) begin
             bullet_opa_r <= 1'b0;
-            bullet_x_r <= sprx_r + 30;
-            bullet_y_r <= spry_r;
+            bullet_x_r <= sprx_r + 32;
+            bullet_y_r <= spry_r + 30;
         end
 		else begin
             bullet_opa_r <= bullet_opa_w;

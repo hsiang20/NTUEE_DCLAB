@@ -140,9 +140,14 @@ logic keydown_0, keydown_2;
 logic [2:0] state;
 logic [3:0] test;
 logic CLK_25;
-logic gpio_test;
-assign gpio_test = EX_IO[0];
-assign EX_IO[0] = 1'bZ;
+logic gpio_test, burst, start;
+logic [2:0] speed;
+logic [7:0] base;
+assign burst = EX_IO[0];
+assign speed = EX_IO[3:1];
+assign start = EX_IO[4];
+assign base = SW[8:1];
+assign EX_IO[6:0] = 7'bZ;
 
 Debounce deb0(
 	.i_in(KEY[0]),
@@ -162,11 +167,14 @@ Top top0(
 	.i_clk(CLOCK_50),
 	.i_clk_25(CLK_25), 
 	.i_rst_n(KEY[1]),
-	.i_start(KEY[0]),
+	.i_key0(KEY[0]),
 	.i_key2(KEY[2]),
 	.i_key3(KEY[3]),
 	.i_sw0(SW[0]),
-	.i_sw1(SW[1]), 
+	.i_burst(burst), 
+	.i_speed(speed), 
+	.i_start(start), 
+	.i_base(base), 
 	.VGA_R(VGA_R), 
 	.VGA_G(VGA_G), 
 	.VGA_B(VGA_B), 
