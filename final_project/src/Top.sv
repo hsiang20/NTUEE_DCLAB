@@ -53,6 +53,8 @@ module Top (
     localparam NORMAL = 3'd3;
     localparam DEAD = 3'd4;
     localparam FINAL = 3'd5;
+    localparam WIN = 3'd6;
+    
     logic [2:0] state_r, state_w;
     logic [19:0] screen_height_r, screen_height_w; // doodle height: spry_r, speed: y_motion_r
     logic [19:0] now_plate_left_r, now_plate_left_w, now_plate_right_r, now_plate_right_w, now_plate_bg_height_r, now_plate_bg_height_w; // which plate the doodle is on
@@ -110,7 +112,11 @@ module Top (
                     now_plate_index_w = now_plate_index_r;
                     now_plate_right_w = plate_x[now_plate_index_r] + PLATE_WIDTH;
                     now_plate_left_w = plate_x[now_plate_index_r];
-                    if (plate_y[now_plate_index_r] >= 420) begin
+                    if (now_plate_index_r >= PLATE_NUM - 1) begin
+                        screen_height_w = screen_height_r;
+                        state_w = PREWIN;
+                    end
+                    else if (plate_y[now_plate_index_r] >= 420) begin
                         screen_height_w = plate_y_init[now_plate_index_r] - 13; 
                         state_w = NORMAL;
                     end
@@ -166,6 +172,21 @@ module Top (
                     screen_height_w = screen_height_r;
                     state_w = state_r;
                 end
+                PREWIN: begin
+                    now_plate_index_w = now_plate_index_r;
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
+                    screen_height_w = screen_height_r;
+                    if (spry_r == 480) state_w = WIN;
+                    else state_w = state_r;
+                end
+                WIN: begin
+                    now_plate_index_w = now_plate_index_r;
+                    now_plate_right_w = now_plate_right_r;
+                    now_plate_left_w = now_plate_left_r;
+                    screen_height_w = screen_height_r;
+                    state_w = state_r;
+                end
                 default: begin
                     now_plate_index_w = now_plate_index_r;
                     now_plate_right_w = now_plate_right_r;
@@ -180,8 +201,10 @@ module Top (
             now_plate_right_w = now_plate_right_r;
             now_plate_left_w = now_plate_left_r;
             screen_height_w = screen_height_r;
-            state_w = state_r;
             if (start && state_r == OPEN) state_w = INIT;
+            else if (start && state_r == FINAL) state_w = OPEN;
+            else if (start && state_r == WIN) state_w = OPEN;
+            else state_w = state_r;
         end
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
@@ -196,7 +219,8 @@ module Top (
         end
         else if (replay) begin
             if (state_r == OPEN) state_r <= INIT;
-            else if (state_r == DEAD) state_r <= OPEN;
+            else if (state_r == FINAL) state_r <= OPEN;
+            else if (state_r == WIN) state_r <= OPEN;
             else state_r <= state_w;
             screen_height_r <= plate_y_init[base] - 60;
             now_plate_left_r <= 0;
@@ -205,8 +229,9 @@ module Top (
             now_plate_index_r <= 11'b0; 
         end
         else begin
+            if (i_sw0 && state_r == OPEN) state_r <= INIT;
+            else state_r <= state_w;
             count_r <= count_w;
-            state_r <= state_w;
             screen_height_r <= screen_height_w;
             now_plate_left_r <= now_plate_left_w;
             now_plate_right_r <= now_plate_right_w;
@@ -261,6 +286,7 @@ module Top (
     parameter GAMEOVER_TRANS = 0;
     parameter PLAYAGAIN_TRANS = 0;
     parameter BULLET_TRANS = 0;
+    parameter WIN_TRANS = 0;
     logic [7:0] r_r, r_w, g_r, g_w, b_r, b_w;
     
     logic [PLATE_NUM-1:0] plate_draw;
@@ -340,6 +366,17 @@ module Top (
                       (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[7:4], 4'b0}  : bg_g_r;
                 b_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de)                   ? {spr_colr[3:0], 4'b0}        : 
                       (gameover_drawing_r && !(gameover_pix == GAMEOVER_TRANS) && de)    ? {gameover_colr[3:0], 4'b0}   : 
+                      (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[3:0], 4'b0}  : bg_b_r;
+            end
+            WIN: begin
+                r_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[11:8], 4'b0} : 
+                      (win_drawing_r && !(win_pix == WIN_TRANS) && de) ? {win_colr[11:8], 4'b0} :
+                      (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[11:8], 4'b0} : bg_r_r;
+                g_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[7:4], 4'b0}  : 
+                      (win_drawing_r && !(win_pix == WIN_TRANS) && de) ? {win_colr[7:4], 4'b0}  :
+                      (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[7:4], 4'b0}  : bg_g_r;
+                b_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[3:0], 4'b0}  : 
+                      (win_drawing_r && !(win_pix == WIN_TRANS) && de) ? {win_colr[3:0], 4'b0}  :
                       (playagain_drawing_r && !(playagain_pix == PLAYAGAIN_TRANS) && de) ? {playagain_colr[3:0], 4'b0}  : bg_b_r;
             end
             default: begin
@@ -485,6 +522,15 @@ module Top (
                 if (spry_r == 480) spry_w = 0;
                 else if (spry_r != 400) spry_w = spry_r + 10;
                 else spry_w = spry_r;
+            end
+            else if (state == WIN) begin
+                if (spry_r == 480) spry_w = 0;
+                else if (spry_r != 400) spry_w = spry_r + 10;
+                else spry_w = spry_r;
+            end
+            else if (state == PREWIN) begin
+                if (spry_r < 445) spry_w = spry_r + 10;
+                else spry_w = 480;
             end
             else if (state == DEAD) begin
                 if (spry_r < 445) spry_w = spry_r + 10;
@@ -802,6 +848,30 @@ module Top (
         .pix(playagain_pix), 
         .colr(playagain_colr), 
         .drawing_r(playagain_drawing_r)
+    );
+
+
+    // win
+    logic [3:0] win_pix;
+    logic [11:0] win_colr;
+    logic win_drawing_r;
+    item #(
+        .FILE("win.mem"), 
+        .PALETTE_FILE("win_palette.mem"), 
+        .WIDTH(512), 
+        .HEIGHT(100)
+    ) win (
+        .i_clk_25(i_clk_25), 
+        .i_rst_n(i_rst_n), 
+        .replay(replay), 
+        .sx(sx), 
+        .sy(sy), 
+        .x_init(60), 
+        .y_init(50), 
+        .line(line), 
+        .pix(win_pix), 
+        .colr(win_colr), 
+        .drawing_r(win_drawing_r)
     );
 
 
