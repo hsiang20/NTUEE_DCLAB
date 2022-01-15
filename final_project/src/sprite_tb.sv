@@ -15,8 +15,11 @@ module tb;
     Top top0(
         .i_clk(clk), 
         .i_rst_n(rst), 
+        .i_key2(key2), 
+        .i_key3(key3), 
+        .i_sw0(sw0), 
         .i_clk_25(clk), 
-        .i_start(start), 
+        .i_start(key0), 
         .VGA_R(r), 
         .VGA_G(g), 
         .VGA_B(b), 
@@ -26,20 +29,6 @@ module tb;
         .VGA_VS(o_vs), 
         .VGA_SYNC_N(o_sync_n), 
         .state(state_1)
-    );
-
-    vga vga0(
-        .i_rst_n(rst), 
-        .i_clk_25M(clk), 
-        .i_start_display(start), 
-        .VGA_R(v_r), 
-        .VGA_G(v_g), 
-        .VGA_B(v_b), 
-        .VGA_CLK(v_clk), 
-        .VGA_BLANK_N(v_blank_n), 
-        .VGA_HS(v_hs), 
-        .VGA_VS(v_vs), 
-        .VGA_SYNC_N(v_sync_n)
     );
 
     initial begin
@@ -52,7 +41,7 @@ module tb;
         rst = 1;
         start = 1;
         #CLK
-        #(2000000*CLK)
+        #(20000000*CLK)
         $finish;
     end
 

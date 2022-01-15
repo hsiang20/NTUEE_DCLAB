@@ -162,7 +162,7 @@ Top top0(
 	.i_clk(CLOCK_50),
 	.i_clk_25(CLK_25), 
 	.i_rst_n(KEY[1]),
-	.i_start(keydown_0),
+	.i_start(KEY[0]),
 	.i_key2(KEY[2]),
 	.i_key3(KEY[3]),
 	.i_sw0(SW[0]),

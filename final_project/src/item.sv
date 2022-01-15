@@ -44,7 +44,6 @@ module item #(
         .addr(pix), 
         .data(colr)
     );
-    logic signed [CORDW-1:0] x_r, x_w, y_r, y_w;
     logic start, drawing, drawing_w;
     sprite_1 #(
         .WIDTH(WIDTH), 
@@ -58,7 +57,7 @@ module item #(
         .rst(i_rst_n), 
         .start(start), 
         .sx(sx), 
-        .sprx(x_r),
+        .sprx(x_init),
         .data_in(rom_data), 
         .pos(rom_addr),  
         .pix(pix), 
@@ -66,20 +65,10 @@ module item #(
         .done()
     );
     always_comb begin
-        start = (line && sy == y_r);
-        x_w = x_r;
-        y_w = y_r;
+        start = (line && sy == y_init);
         drawing_w = drawing;
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
-		if (!i_rst_n) begin
-            x_r <= x_init;
-            y_r <= y_init;
-        end
-		else begin
-            x_r <= x_w;
-            y_r <= y_w;
-            drawing_r <= drawing_w;
-        end
+        drawing_r <= drawing_w;
 	end
 endmodule
