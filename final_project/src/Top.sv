@@ -21,8 +21,8 @@ module Top (
     output VGA_HS, 
     output VGA_VS, 
     output VGA_SYNC_N, 
-	output [2:0] state, 
-    output [3:0] test
+	output [15:0] score, 
+    output [3:0] state
 );
     // display sync signals and coordinates
     localparam CORDW = 16; // screen coordinate width
@@ -41,7 +41,8 @@ module Top (
     assign VGA_B = b_r;
 	assign VGA_CLK = i_clk_25;
     assign state = state_r;
-    assign test = !(bullet_y_r+12 > monster_y[0] && bullet_y_r < monster_y[0]+MONSTER_HEIGHT && (bullet_x_r+12) > monster_x[0] && bullet_x_r < (monster_x[0]+MONSTER_WIDTH));
+    // assign test = !(bullet_y_r+12 > monster_y[0] && bullet_y_r < monster_y[0]+MONSTER_HEIGHT && (bullet_x_r+12) > monster_x[0] && bullet_x_r < (monster_x[0]+MONSTER_WIDTH));
+    assign score = (screen_height_r<65) ? 0 : screen_height_r;
     assign start = i_sw0 || i_start;
     assign base = i_base;
     assign replay = i_sw17;
@@ -53,7 +54,8 @@ module Top (
     localparam NORMAL = 3'd3;
     localparam DEAD = 3'd4;
     localparam FINAL = 3'd5;
-    localparam WIN = 3'd6;
+    localparam PREWIN = 3'd6;
+    localparam WIN = 3'd7;
     
     logic [2:0] state_r, state_w;
     logic [19:0] screen_height_r, screen_height_w; // doodle height: spry_r, speed: y_motion_r
@@ -518,21 +520,21 @@ module Top (
             else begin
                 y_motion_w = 0;
             end
-            if (state == FINAL) begin
+            if (state_r == FINAL) begin
                 if (spry_r == 480) spry_w = 0;
                 else if (spry_r != 400) spry_w = spry_r + 10;
                 else spry_w = spry_r;
             end
-            else if (state == WIN) begin
+            else if (state_r == WIN) begin
                 if (spry_r == 480) spry_w = 0;
                 else if (spry_r != 400) spry_w = spry_r + 10;
                 else spry_w = spry_r;
             end
-            else if (state == PREWIN) begin
+            else if (state_r == PREWIN) begin
                 if (spry_r < 445) spry_w = spry_r + 10;
                 else spry_w = 480;
             end
-            else if (state == DEAD) begin
+            else if (state_r == DEAD) begin
                 if (spry_r < 445) spry_w = spry_r + 10;
                 else spry_w = 480;
             end

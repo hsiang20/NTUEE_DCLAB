@@ -143,6 +143,7 @@ logic CLK_25;
 logic gpio_test, burst, start;
 logic [2:0] speed;
 logic [7:0] base;
+logic [15:0] score;
 assign burst = EX_IO[0];
 assign speed = EX_IO[3:1];
 assign start = EX_IO[4];
@@ -184,8 +185,8 @@ Top top0(
 	.VGA_HS(VGA_HS), 
 	.VGA_VS(VGA_VS), 
 	.VGA_SYNC_N(VGA_SYNC_N),
-	.state(state), 
-	.test(test)
+	.score(score), 
+	.state(state)
 );
 
 vga_test my_qsys(
@@ -194,23 +195,32 @@ vga_test my_qsys(
 	.altpll_0_c0_clk(CLK_25)
 );
 
+// SevenHexDecoder seven_decs(
+// 	.i_hex(state),
+// 	.o_seven(HEX7)
+// );
+
 SevenHexDecoder seven_dec0(
-	.i_hex(state),
-	.o_seven_ten(HEX1),
-	.o_seven_one(HEX0)
+	.i_hex(score[15:12]),
+	.o_seven(HEX3)
 );
-
 SevenHexDecoder seven_dec1(
-	.i_hex(test),
-	.o_seven_ten(HEX3),
-	.o_seven_one(HEX2)
+	.i_hex(score[11:8]),
+	.o_seven(HEX2)
 );
-
+SevenHexDecoder seven_dec2(
+	.i_hex(score[7:4]),
+	.o_seven(HEX1)
+);
+SevenHexDecoder seven_dec3(
+	.i_hex(score[3:0]),
+	.o_seven(HEX0)
+);
 
 assign HEX4 = '1;
 assign HEX5 = '1;
 assign HEX6 = '1;
-assign HEX7 = gpio_test? '0 : '1;
+assign HEX7 = '1;
 
 `ifdef DUT_FINAL
 	initial begin
