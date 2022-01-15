@@ -9,6 +9,7 @@ module Top (
     input i_burst, 
     input [2:0] i_speed, 
     input [7:0] i_base, 
+    input i_sw17, 
 
     // VGA
     input i_clk_25, 
@@ -33,14 +34,17 @@ module Top (
     logic de, line, frame;
     logic start;
     logic [7:0] base;
+    logic i_start_r;
+    logic replay;
     assign VGA_R = r_r;
     assign VGA_G = g_r;
     assign VGA_B = b_r;
 	assign VGA_CLK = i_clk_25;
     assign state = state_r;
     assign test = !(bullet_y_r+12 > monster_y[0] && bullet_y_r < monster_y[0]+MONSTER_HEIGHT && (bullet_x_r+12) > monster_x[0] && bullet_x_r < (monster_x[0]+MONSTER_WIDTH));
-    assign start = i_sw0 && i_start;
+    assign start = i_sw0 || i_start;
     assign base = i_base;
+    assign replay = i_sw17;
 
     // game FSM
     localparam OPEN = 3'd0;
@@ -180,11 +184,21 @@ module Top (
             if (start && state_r == OPEN) state_w = INIT;
         end
     end
-	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
         if (!i_rst_n) begin
             count_r <= base;
             state_r <= OPEN;
-            screen_height_r <= count_r[12:0] + (base<<4);
+            screen_height_r <= plate_y_init[base] - 60;
+            now_plate_left_r <= 0;
+            now_plate_right_r <= 640;
+            jump_pos_r <= 8'b0;
+            now_plate_index_r <= 11'b0; 
+        end
+        else if (replay) begin
+            if (state_r == OPEN) state_r <= INIT;
+            else if (state_r == DEAD) state_r <= OPEN;
+            else state_r <= state_w;
+            screen_height_r <= plate_y_init[base] - 60;
             now_plate_left_r <= 0;
             now_plate_right_r <= 640;
             jump_pos_r <= 8'b0;
@@ -200,7 +214,7 @@ module Top (
             jump_pos_r <= jump_pos_w;
         end
     end
-	 
+
 
     // background color
     logic [7:0] bg_r_r, bg_r_w, bg_g_r, bg_g_w, bg_b_r, bg_b_w;
@@ -220,8 +234,13 @@ module Top (
             end
         end
     end
-	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
 		if (!i_rst_n) begin
+            bg_r_r <= 8'h00;
+            bg_g_r <= 8'h00;
+            bg_b_r <= 8'h00;
+        end
+        else if (replay) begin
             bg_r_r <= 8'h00;
             bg_g_r <= 8'h00;
             bg_b_r <= 8'h00;
@@ -257,8 +276,8 @@ module Top (
     logic [11:0] monster2_color_draw [MONSTER2_NUM];
     logic [11:0] monster2_color_display;
     assign plate_draw_display = !(plate_draw == 0);
-    assign monster_draw_display = !(monster_draw == 0) && monster_valid_r[0] && monster_valid_r[1] && monster_valid_r[2] && monster_valid_r[3] && monster_valid_r[4] && monster_valid_r[5] && monster_valid_r[6] && monster_valid_r[7] && monster_valid_r[8] && monster_valid_r[9];
-    assign monster2_draw_display = !(monster2_draw == 0)&& monster2_valid_r[0] && monster2_valid_r[1] && monster2_valid_r[2] && monster2_valid_r[3] && monster2_valid_r[4] && monster2_valid_r[5] && monster2_valid_r[6] && monster2_valid_r[7] && monster2_valid_r[8] && monster2_valid_r[9];
+    assign monster_draw_display = !(monster_draw == 0);
+    assign monster2_draw_display = !(monster2_draw == 0);
     genvar j, q, r;
     generate
         for (j=0; j<PLATE_NUM; j=j+1) begin : plate_color
@@ -266,12 +285,12 @@ module Top (
             assign plate_color_draw[j] = (plate_draw[j])? plate_colr[j] : 12'b0;
         end
         for (q=0; q<MONSTER_NUM; q=q+1) begin : monster_color
-            assign monster_draw[q] = (monster_drawing_r[q] && !(monster_pix[q]==MONSTER_TRANS) && de);
-            assign monster_color_draw[q] = (monster_draw[q] && monster_valid_r[q])? monster_colr[q] : 12'b0;
+            assign monster_draw[q] = (monster_drawing_r[q] && !(monster_pix[q]==MONSTER_TRANS) && de && monster_valid_r[q]);
+            assign monster_color_draw[q] = (monster_draw[q])? monster_colr[q] : 12'b0;
         end
         for (r=0; r<MONSTER2_NUM; r=r+1) begin : monster2_color
-            assign monster2_draw[r] = (monster2_drawing_r[r] && !(monster2_pix[r]==MONSTER2_TRANS) && de);
-            assign monster2_color_draw[r] = (monster2_draw[r] && monster2_valid_r[r])? monster2_colr[r] : 12'b0;
+            assign monster2_draw[r] = (monster2_drawing_r[r] && !(monster2_pix[r]==MONSTER2_TRANS) && de && monster2_valid_r[r]);
+            assign monster2_color_draw[r] = (monster2_draw[r])? monster2_colr[r] : 12'b0;
         end
     endgenerate
 
@@ -325,25 +344,30 @@ module Top (
             end
             default: begin
                 r_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[11:8], 4'b0} :
-                      (bullet_drawing_r && (bullet_pix == BULLET_TRANS) && de && bullet_opa_r)    ? {bullet_colr[11:8], 4'b0}   : 
+                      (bullet_drawing_r && !(bullet_pix == BULLET_TRANS) && de && bullet_opa_r)    ? {bullet_colr[11:8], 4'b0}   : 
                       (monster_draw_display)                                 ? {monster_color_display[11:8], 4'b0} :
                       (monster2_draw_display)                                ? {monster2_color_display[11:8], 4'b0} :
                       (plate_draw_display)                                   ? {plate_color_display[11:8], 4'b0} : bg_r_r;   
                 g_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[7:4], 4'b0} : 
-                      (bullet_drawing_r && (bullet_pix == BULLET_TRANS) && de && bullet_opa_r)    ? {bullet_colr[7:4], 4'b0}   : 
+                      (bullet_drawing_r && !(bullet_pix == BULLET_TRANS) && de && bullet_opa_r)    ? {bullet_colr[7:4], 4'b0}   : 
                       (monster_draw_display)                                 ? {monster_color_display[7:4], 4'b0} :
                       (monster2_draw_display)                                ? {monster2_color_display[7:4], 4'b0} :
                       (plate_draw_display)                                   ? {plate_color_display[7:4], 4'b0} : bg_g_r;   
                 b_w = (spr_drawing_r && !(spr_pix == SPR_TRANS) && de) ? {spr_colr[3:0], 4'b0} : 
-                      (bullet_drawing_r && (bullet_pix == BULLET_TRANS) && de && bullet_opa_r)    ? {bullet_colr[3:0], 4'b0}   : 
+                      (bullet_drawing_r && !(bullet_pix == BULLET_TRANS) && de && bullet_opa_r)    ? {bullet_colr[3:0], 4'b0}   : 
                       (monster_draw_display)                                 ? {monster_color_display[3:0], 4'b0} :
                       (monster2_draw_display)                                ? {monster2_color_display[3:0], 4'b0} :
                       (plate_draw_display)                                   ? {plate_color_display[3:0], 4'b0} : bg_b_r;   
             end
         endcase
     end
-	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
 		if (!i_rst_n) begin
+            r_r <= 8'b0;
+            g_r <= 8'b0;
+            b_r <= 8'b0;
+        end
+        else if (replay) begin
             r_r <= 8'b0;
             g_r <= 8'b0;
             b_r <= 8'b0;
@@ -402,6 +426,7 @@ module Top (
     ) doodle(
         .clk(i_clk_25), 
         .rst(i_rst_n), 
+        .replay(replay), 
         .start(spr_start), 
         .sx(sx), 
         .sprx(sprx_r),
@@ -440,7 +465,7 @@ module Top (
             else if (!direction) begin
                 sprx_w = (sprx_r > -SPR_WIDTH*SCALE_X) ? sprx_r - (speed<<1) - 1 : H_RES;
             end
-            if (start) begin
+            if (state_r != OPEN) begin
                 if (state_r == JUMP) begin
                     if (y_motion_r == 0) y_motion_w = 1;
                     else y_motion_w = ((spry_r - plate_y[now_plate_index_r]) >> 3) + 1;
@@ -472,10 +497,14 @@ module Top (
             end
         end
     end
-	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
 		if (!i_rst_n) begin
             sprx_r <= 300;
             spry_r <= 376;
+            y_motion_r <= 11'b0;
+            spr_base_addr_r <= 0;
+        end
+        else if (replay) begin
             y_motion_r <= 11'b0;
             spr_base_addr_r <= 0;
         end
@@ -491,8 +520,8 @@ module Top (
 
 
     // plate
-    localparam TOTAL_PLATE = 1000;
-    localparam PLATE_NUM = 100;
+    localparam TOTAL_PLATE = 200;
+    localparam PLATE_NUM = 200;
     logic [19:0] plate_x_init [TOTAL_PLATE];
     logic [19:0] plate_y_init [TOTAL_PLATE]; // bg_height
     logic [COLR_BITS-1:0] plate_pix [PLATE_NUM];
@@ -521,6 +550,7 @@ module Top (
             plate plate1(
                 .clk(i_clk_25), 
                 .i_rst_n(i_rst_n), 
+                .replay(replay), 
                 .sx(sx), 
                 .sy(sy), 
                 .plate_x_init(a), 
@@ -547,13 +577,12 @@ module Top (
     item #(
         .FILE("bullet.mem"), 
         .PALETTE_FILE("bullet_palette.mem"), 
-        .WIDTH(4), 
-        .HEIGHT(4), 
-        .SCALE_X(3), 
-        .SCALE_Y(3)
+        .WIDTH(12), 
+        .HEIGHT(12)
     ) bullet (
         .i_clk_25(i_clk_25), 
         .i_rst_n(i_rst_n), 
+        .replay(replay), 
         .sx(sx), 
         .sy(sy), 
         .x_init(bullet_x_r), 
@@ -578,11 +607,16 @@ module Top (
             bullet_y_w = spry_r + 30;
         end
     end
-	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
+	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
 		if (!i_rst_n) begin
             bullet_opa_r <= 1'b0;
             bullet_x_r <= sprx_r + 32;
             bullet_y_r <= spry_r + 30;
+        end
+        else if (replay) begin
+            bullet_opa_r <= 1'b0;
+            bullet_x_r <= 300 + 32;
+            bullet_y_r <= 376 + 30;
         end
 		else begin
             bullet_opa_r <= bullet_opa_w;
@@ -624,6 +658,7 @@ module Top (
             monster monster1(
                 .clk(i_clk_25), 
                 .i_rst_n(i_rst_n), 
+                .replay(replay), 
                 .sx(sx), 
                 .sy(sy), 
                 .monster_x_init(c), 
@@ -664,7 +699,7 @@ module Top (
         $readmemh(MONSTER2_POS_Y_FILE, monster2_y_init);
     end
     localparam MONSTER2_WIDTH = 64;
-    localparam MONSTER2_HEIGHT = 64;
+    localparam MONSTER2_HEIGHT = 96;
     localparam MONSTER2_FRAMES = 1;
     localparam MONSTER2_PIXELS = MONSTER2_WIDTH * MONSTER2_HEIGHT;
     localparam MONSTER2_DEPTH = MONSTER2_PIXELS * MONSTER2_FRAMES;
@@ -675,9 +710,10 @@ module Top (
             logic [19:0] c, d;
             assign c = monster2_x_init[p];
             assign d = monster2_y_init[p];
-            monster2 monster21(
+            monster2 monster2(
                 .clk(i_clk_25), 
                 .i_rst_n(i_rst_n), 
+                .replay(replay), 
                 .sx(sx), 
                 .sy(sy), 
                 .monster2_x_init(c), 
@@ -711,6 +747,7 @@ module Top (
     ) title (
         .i_clk_25(i_clk_25), 
         .i_rst_n(i_rst_n), 
+        .replay(replay), 
         .sx(sx), 
         .sy(sy), 
         .x_init(60), 
@@ -728,10 +765,12 @@ module Top (
     item #(
         .FILE("gameover.mem"), 
         .PALETTE_FILE("gameover_palette.mem"), 
-        .HEIGHT(177)
+        .HEIGHT(177), 
+        .WIDTH(512)
     ) gameover (
         .i_clk_25(i_clk_25), 
         .i_rst_n(i_rst_n), 
+        .replay(replay), 
         .sx(sx), 
         .sy(sy), 
         .x_init(60), 
@@ -754,9 +793,10 @@ module Top (
     ) playagain (
         .i_clk_25(i_clk_25), 
         .i_rst_n(i_rst_n), 
+        .replay(replay), 
         .sx(sx), 
         .sy(sy), 
-        .x_init(60), 
+        .x_init(200), 
         .y_init(280), 
         .line(line), 
         .pix(playagain_pix), 

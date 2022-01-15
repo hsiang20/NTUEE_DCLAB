@@ -171,6 +171,7 @@ Top top0(
 	.i_key2(KEY[2]),
 	.i_key3(KEY[3]),
 	.i_sw0(SW[0]),
+	.i_sw17(start), 
 	.i_burst(burst), 
 	.i_speed(speed), 
 	.i_start(start), 

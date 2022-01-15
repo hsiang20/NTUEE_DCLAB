@@ -2,6 +2,7 @@
 module monster2 (
     input clk, 
     input i_rst_n, 
+    input replay, 
     input signed [15:0] sx, 
     input signed [15:0] sy, 
     input [19:0] monster2_x_init, 
@@ -61,6 +62,7 @@ module monster2 (
     ) monster2(
         .clk(clk), 
         .rst(i_rst_n), 
+        .replay(replay), 
         .start(monster2_start), 
         .sx(sx), 
         .sprx(monster2_x_r),
@@ -76,8 +78,12 @@ module monster2 (
         monster2_y_w = 469 - MONSTER2_HEIGHT - (monster2_y_init - screen_height);
         monster2_drawing_w = monster2_drawing;
     end
-	always_ff @(posedge clk or negedge i_rst_n) begin
+	always_ff @(posedge clk or negedge i_rst_n or posedge replay) begin
 		if (!i_rst_n) begin
+            monster2_x_r <= monster2_x_init;
+            monster2_y_r <= 469 - MONSTER2_HEIGHT - monster2_y_init;
+        end
+        else if (replay) begin
             monster2_x_r <= monster2_x_init;
             monster2_y_r <= 469 - MONSTER2_HEIGHT - monster2_y_init;
         end
@@ -87,5 +93,5 @@ module monster2 (
             monster2_drawing_r <= monster2_drawing_w;
         end
 	end
-
+    
 endmodule

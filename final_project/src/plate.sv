@@ -1,6 +1,7 @@
 module plate (
     input clk, 
     input i_rst_n, 
+    input replay, 
     input signed [15:0] sx, 
     input signed [15:0] sy, 
     input [19:0] plate_x_init, 
@@ -60,6 +61,7 @@ module plate (
     ) plate(
         .clk(clk), 
         .rst(i_rst_n), 
+        .replay(replay), 
         .start(plate_start), 
         .sx(sx), 
         .sprx(plate_x_r),
@@ -75,8 +77,12 @@ module plate (
         plate_y_w = 469 - 16 - (plate_y_init - screen_height);
         plate_drawing_w = plate_drawing;
     end
-	always_ff @(posedge clk or negedge i_rst_n) begin
+	always_ff @(posedge clk or negedge i_rst_n or posedge replay) begin
 		if (!i_rst_n) begin
+            plate_x_r <= plate_x_init;
+            plate_y_r <= 469 - 16 - plate_y_init;
+        end
+        else if (replay) begin
             plate_x_r <= plate_x_init;
             plate_y_r <= 469 - 16 - plate_y_init;
         end
@@ -86,5 +92,6 @@ module plate (
             plate_drawing_r <= plate_drawing_w;
         end
 	end
+    
 
 endmodule

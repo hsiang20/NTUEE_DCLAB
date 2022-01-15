@@ -9,6 +9,7 @@ module sprite_1 #(
     )(
     input clk, 
     input rst, 
+    input replay, 
     input start, 
     input signed [15:0] sx, // horizontal screen position
     input signed [15:0] sprx, // horizontal sprite position
@@ -118,8 +119,18 @@ module sprite_1 #(
         
     end
 
-    always_ff @(posedge clk or negedge rst) begin
+    always_ff @(posedge clk or negedge rst or posedge replay) begin
         if (!rst) begin
+            state <= IDLE;
+            pix_r <= 0;
+            ox_r <= 0;
+            oy_r <= 0;
+            cnt_x_r <= 0;
+            cnt_y_r <= 0;
+            done_r <= 1'b0;
+            pos_r <= 0;
+        end
+        else if (replay) begin
             state <= IDLE;
             pix_r <= 0;
             ox_r <= 0;
@@ -140,6 +151,5 @@ module sprite_1 #(
             pos_r <= pos_w;
         end
     end
-
 
 endmodule

@@ -14,6 +14,7 @@ module item #(
 )(
     input i_clk_25, 
     input i_rst_n, 
+    input replay, 
     input signed [15:0] sx, 
     input signed [15:0] sy, 
     input [19:0] x_init, 
@@ -55,6 +56,7 @@ module item #(
     ) title(
         .clk(i_clk_25), 
         .rst(i_rst_n), 
+        .replay(replay), 
         .start(start), 
         .sx(sx), 
         .sprx(x_init),
@@ -68,7 +70,10 @@ module item #(
         start = (line && sy == y_init);
         drawing_w = drawing;
     end
-	always_ff @(posedge i_clk_25 or negedge i_rst_n) begin
-        drawing_r <= drawing_w;
+	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
+        if (!i_rst_n) drawing_r <= 0;
+        else if (replay) drawing_r <= 0;
+        else drawing_r <= drawing_w;
 	end
+
 endmodule
