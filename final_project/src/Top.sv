@@ -30,6 +30,7 @@ module Top (
     parameter H_RES = 640;
     logic [5:0] cnt_anim_r, cnt_anim_w;
     logic [19:0] count_r, count_w;
+    logic [15:0] lfsr_r, lfsr_w;
     logic signed [CORDW-1:0] sx, sy;
     logic de, line, frame;
     logic start;
@@ -72,6 +73,11 @@ module Top (
     endgenerate
     always_comb begin
         count_w = count_r + 1;
+        lfsr_w	= {lfsr_r[8] ^ (lfsr_r[6] ^ (lfsr_r[5] ^ lfsr_r[3])), 
+                   lfsr_r[7] ^ (lfsr_r[5] ^ (lfsr_r[4] ^ lfsr_r[2])), 
+                   lfsr_r[6] ^ (lfsr_r[4] ^ (lfsr_r[3] ^ lfsr_r[1])), 
+                   lfsr_r[5] ^ (lfsr_r[3] ^ (lfsr_r[2] ^ lfsr_r[0])), 
+                   lfsr_r[15:4]};
         if (frame) begin
             case (state_r)
                 OPEN: begin
@@ -211,6 +217,7 @@ module Top (
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
         if (!i_rst_n) begin
+            lfsr_r <= 16'b1011010010010011;
             count_r <= base;
             state_r <= OPEN;
             screen_height_r <= plate_y_init[base] - 60;
@@ -224,7 +231,8 @@ module Top (
             else if (state_r == FINAL) state_r <= OPEN;
             else if (state_r == WIN) state_r <= OPEN;
             else state_r <= state_w;
-            screen_height_r <= plate_y_init[base] - 60;
+            if (base == 0) screen_height_r <= plate_y_init[lfsr_r[6:0]] - 60;
+            else screen_height_r <= plate_y_init[base] - 60;
             now_plate_left_r <= 0;
             now_plate_right_r <= 640;
             jump_pos_r <= 8'b0;
@@ -233,6 +241,7 @@ module Top (
         else begin
             if (i_sw0 && state_r == OPEN) state_r <= INIT;
             else state_r <= state_w;
+            lfsr_r <= lfsr_w;
             count_r <= count_w;
             screen_height_r <= screen_height_w;
             now_plate_left_r <= now_plate_left_w;
@@ -641,30 +650,30 @@ module Top (
         .drawing_r(bullet_drawing_r)
     );
     always_comb begin
-        if (bullet_y_r <= 1) bullet_opa_w = 1'b0;
+        if (bullet_y_r <= 10) bullet_opa_w = 1'b0;
         else if (bullet_y_r > 469) bullet_opa_w = 1'b0;
         else if (burst) bullet_opa_w = 1'b1;
         else bullet_opa_w = bullet_opa_r;
         if (bullet_opa_r) begin
-            if (frame) bullet_y_w = bullet_y_r - 10;
+            if (frame && bullet_y_r > 10) bullet_y_w = bullet_y_r - 10;
             else bullet_y_w = bullet_y_r;
             bullet_x_w = bullet_x_r;
         end
         else begin
-            bullet_x_w = sprx_r + 32;
-            bullet_y_w = spry_r + 30;
+            bullet_x_w = sprx_r + 25;
+            bullet_y_w = spry_r + 70;
         end
     end
 	always_ff @(posedge i_clk_25 or negedge i_rst_n or posedge replay) begin
 		if (!i_rst_n) begin
             bullet_opa_r <= 1'b0;
-            bullet_x_r <= sprx_r + 32;
-            bullet_y_r <= spry_r + 30;
+            bullet_x_r <= sprx_r + 25;
+            bullet_y_r <= spry_r + 70;
         end
         else if (replay) begin
             bullet_opa_r <= 1'b0;
-            bullet_x_r <= 300 + 32;
-            bullet_y_r <= 376 + 30;
+            bullet_x_r <= 300 + 25;
+            bullet_y_r <= 376 + 70;
         end
 		else begin
             bullet_opa_r <= bullet_opa_w;
@@ -724,7 +733,7 @@ module Top (
     genvar p3;
     generate
         for (p3=0; p3<MONSTER_NUM; p3=p3+1) begin: dao
-            assign monster_valid_w[p3] = !(state_r != OPEN && bullet_y_r+12 > monster_y[p3] && bullet_y_r < monster_y[p3]+MONSTER_HEIGHT && (bullet_x_r+12) > monster_x[p3] && bullet_x_r < (monster_x[p3]+MONSTER_WIDTH));
+            assign monster_valid_w[p3] = !(state_r != OPEN && (bullet_y_r+12 > monster_y[p3]) && (bullet_y_r < monster_y[p3]+MONSTER_HEIGHT) && ((bullet_x_r+12) > monster_x[p3]) && (bullet_x_r < (monster_x[p3]+MONSTER_WIDTH)));
             assign monster_valid_r[p3] = (state_r == OPEN)? 1'b1 : (monster_valid_r[p3])? monster_valid_w[p3] : 1'b0;
         end
     endgenerate
