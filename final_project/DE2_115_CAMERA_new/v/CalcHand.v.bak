@@ -1,0 +1,254 @@
+module CalcHand(
+    input               iCLK,
+    input               iRST_N,
+    input       [12:0]  iH_Cont,
+    input       [12:0]  iV_Cont,
+    input       [9:0]   iColorVal,
+    input       [9:0]   iEdgeVal,
+    output  reg [2:0]   oDirection,
+    output  reg [3:0]  oAreaEdge    
+);
+
+`ifdef VGA_640x480p60
+//	Horizontal Parameter	( Pixel )
+parameter	H_SYNC_CYC	=	96;
+parameter	H_SYNC_BACK	=	48;
+parameter	H_SYNC_ACT	=	640;	
+parameter	H_SYNC_FRONT=	16;
+parameter	H_SYNC_TOTAL=	800;
+
+//	Vertical Parameter		( Line )
+parameter	V_SYNC_CYC	=	2;
+parameter	V_SYNC_BACK	=	33;
+parameter	V_SYNC_ACT	=	480;	
+parameter	V_SYNC_FRONT=	10;
+parameter	V_SYNC_TOTAL=	525; 
+
+`else
+ // SVGA_800x600p60
+////	Horizontal Parameter	( Pixel )
+parameter	H_SYNC_CYC	=	128;         //Peli
+parameter	H_SYNC_BACK	=	88;
+parameter	H_SYNC_ACT	=	800;	
+parameter	H_SYNC_FRONT=	40;
+parameter	H_SYNC_TOTAL=	1056;
+//	Virtical Parameter		( Line )
+parameter	V_SYNC_CYC	=	4;
+parameter	V_SYNC_BACK	=	23;
+parameter	V_SYNC_ACT	=	600;	
+parameter	V_SYNC_FRONT=	1;
+parameter	V_SYNC_TOTAL=	628;
+
+`endif
+//	Start Offset
+parameter	X_START		=	H_SYNC_CYC+H_SYNC_BACK;
+parameter	Y_START		=	V_SYNC_CYC+V_SYNC_BACK;
+
+// leftmost -> middle -> rightmost
+reg  [17:0] skincount [0:7];
+// wire [17:0] AreaPixel;
+reg  [17:0] MostPixel;
+reg  [2:0]  MostDirection;
+
+reg   [17:0] EdgePixel;
+// wire  [35:0] EdgePixelSquare;
+// wire  [17:0] PeriAreaRatio;
+
+integer i;
+
+always @(posedge iCLK or negedge iRST_N) begin
+    if (!iRST_N) begin
+        skincount[0]  <= 0;
+        skincount[1]  <= 0;
+        skincount[2]  <= 0;
+        skincount[3]  <= 0;
+        skincount[4]  <= 0;
+        skincount[5]  <= 0;
+        skincount[6]  <= 0;
+        EdgePixel     <= 0;
+    end
+    else begin
+        if (iV_Cont < Y_START || iV_Cont >= Y_START+V_SYNC_ACT) begin
+        skincount[0]  <= 0;
+        skincount[1]  <= 0;
+        skincount[2]  <= 0;
+        skincount[3]  <= 0;
+        skincount[4]  <= 0;
+        skincount[5]  <= 0;
+        skincount[6]  <= 0;
+        EdgePixel     <= 0;
+        end
+        else if (iH_Cont >= X_START && iH_Cont < X_START + H_SYNC_ACT) begin
+            if (iColorVal > 200) begin
+                // right
+                if (iH_Cont - X_START < 114) begin
+                    skincount[0]  <= skincount[0];
+                    skincount[1]  <= skincount[1];
+                    skincount[2]  <= skincount[2];
+                    skincount[3]  <= skincount[3];
+                    skincount[4]  <= skincount[4];
+                    skincount[5]  <= skincount[5];
+                    skincount[6]  <= skincount[6] + 1;
+                end
+                else if (iH_Cont - X_START < 228) begin
+                    skincount[0]  <= skincount[0];
+                    skincount[1]  <= skincount[1];
+                    skincount[2]  <= skincount[2];
+                    skincount[3]  <= skincount[3];
+                    skincount[4]  <= skincount[4];
+                    skincount[5]  <= skincount[5] + 1;
+                    skincount[6]  <= skincount[6];
+                end
+                else if (iH_Cont - X_START < 342) begin
+                    skincount[0]  <= skincount[0];
+                    skincount[1]  <= skincount[1];
+                    skincount[2]  <= skincount[2];
+                    skincount[3]  <= skincount[3];
+                    skincount[4]  <= skincount[4] + 1;
+                    skincount[5]  <= skincount[5];
+                    skincount[6]  <= skincount[6];
+                end
+                // middle
+                else if (iH_Cont - X_START < 456) begin
+                    skincount[0]  <= skincount[0];
+                    skincount[1]  <= skincount[1];
+                    skincount[2]  <= skincount[2];
+                    skincount[3]  <= skincount[3] + 1;
+                    skincount[4]  <= skincount[4];
+                    skincount[5]  <= skincount[5];
+                    skincount[6]  <= skincount[6];
+                end
+                // left
+                else if (iH_Cont - X_START < 572) begin
+                    skincount[0]  <= skincount[0];
+                    skincount[1]  <= skincount[1];
+                    skincount[2]  <= skincount[2] + 1;
+                    skincount[3]  <= skincount[3];
+                    skincount[4]  <= skincount[4];
+                    skincount[5]  <= skincount[5];
+                    skincount[6]  <= skincount[6];
+                end
+                else if (iH_Cont - X_START < 686) begin
+                    skincount[0]  <= skincount[0];
+                    skincount[1]  <= skincount[1] + 1;
+                    skincount[2]  <= skincount[2];
+                    skincount[3]  <= skincount[3];
+                    skincount[4]  <= skincount[4];
+                    skincount[5]  <= skincount[5];
+                    skincount[6]  <= skincount[6];
+                end
+                else if (iH_Cont - X_START < 800) begin
+                    skincount[0]  <= skincount[0] + 1;
+                    skincount[1]  <= skincount[1];
+                    skincount[2]  <= skincount[2];
+                    skincount[3]  <= skincount[3];
+                    skincount[4]  <= skincount[4];
+                    skincount[5]  <= skincount[5];
+                    skincount[6]  <= skincount[6];
+                end
+            end
+            else begin
+                skincount[0]  <= skincount[0];
+                skincount[1]  <= skincount[1];
+                skincount[2]  <= skincount[2];
+                skincount[3]  <= skincount[3];
+                skincount[4]  <= skincount[4];
+                skincount[5]  <= skincount[5];
+                skincount[6]  <= skincount[6];
+            end
+            if (iEdgeVal > 200) begin
+                EdgePixel <= EdgePixel + 1;
+            end
+            else begin
+                EdgePixel <= EdgePixel;
+            end
+        end
+        else begin
+            skincount[0]  <= skincount[0];
+            skincount[1]  <= skincount[1];
+            skincount[2]  <= skincount[2];
+            skincount[3]  <= skincount[3];
+            skincount[4]  <= skincount[4];
+            skincount[5]  <= skincount[5];
+            skincount[6]  <= skincount[6];
+            EdgePixel  <= EdgePixel;
+        end 
+    end
+end
+
+always @(*) begin
+    MostPixel = 0;
+    MostDirection = 0;
+    for (i = 0; i < 7; i = i + 1) begin
+        if (MostPixel < skincount[i]) begin
+            MostPixel = skincount[i];
+            MostDirection = i;
+        end
+    end
+    // If pixel is not enough, set it to default (middle)
+    if (MostPixel < 2000) begin
+        MostDirection = 3;
+    end 
+end
+
+always @(posedge iCLK or negedge iRST_N) begin
+    if (!iRST_N) begin
+        oDirection  <= 3;
+    end
+    else begin
+        if ((iV_Cont == Y_START+V_SYNC_ACT - 1) && (iH_Cont == X_START + H_SYNC_ACT - 1)) begin
+            oDirection  <= MostDirection;
+        end
+        else begin
+            oDirection  <= oDirection;
+        end
+    end
+end
+
+always @(posedge iCLK or negedge iRST_N) begin
+    if (!iRST_N) begin
+        oAreaEdge  <= 0;
+    end
+    else begin
+        if ((iV_Cont == Y_START+V_SYNC_ACT - 1) && (iH_Cont == X_START + H_SYNC_ACT - 1)) begin
+            if (EdgePixel < 18'h3000) begin
+                oAreaEdge  <= 0;
+            end
+            else begin
+                oAreaEdge  <= 1;
+            end
+        end
+        else begin
+            oAreaEdge <= oAreaEdge;
+        end
+    end
+end
+
+
+// mult m0(
+//     .clock(iCLK),
+//     .dataa(EdgePixel),
+//     .result(EdgePixelSquare)
+// );
+
+// div d0(
+//     .clock(iCLK),
+//     .denom(AreaPixel[17:6]),
+//     .numer(EdgePixelSquare[25:8]),
+//     .quotient(PeriAreaRatio),
+//     .remain()
+// );
+
+// PA_7 pa7_0(
+//     .clock(iCLK),
+// 	.data0x(skincount[0]),
+// 	.data1x(skincount[1]),
+// 	.data2x(skincount[2]),
+// 	.data3x(skincount[3]),
+// 	.data4x(skincount[4]),
+// 	.data5x(skincount[5]),
+// 	.data6x(skincount[6]),
+// 	.result(AreaPixel)
+// );
+
+endmodule

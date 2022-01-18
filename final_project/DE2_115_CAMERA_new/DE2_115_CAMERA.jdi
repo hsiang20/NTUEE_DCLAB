@@ -1,0 +1,16 @@
+<sld_project_info>
+  <project>
+    <hash md5_digest_80b="806ba84bba8cf3bbcaeb"/>
+  </project>
+  <file_info>
+    <file device="EP4CE115F29C7" path="DE2_115_CAMERA.sof" usercode="0xFFFFFFFF"/>
+  </file_info>
+  <sld_infos>
+    <sld_info hpath="daodao:pll0" name="pll0">
+      <assignment_values>
+        <assignment_value text="QSYS_NAME daodao HAS_SOPCINFO 1 GENERATION_ID 1637218398"/>
+      </assignment_values>
+      <parameters/>
+    </sld_info>
+  </sld_infos>
+</sld_project_info>

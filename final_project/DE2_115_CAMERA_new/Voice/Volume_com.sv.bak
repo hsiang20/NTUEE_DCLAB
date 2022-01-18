@@ -1,0 +1,70 @@
+module Volume(
+
+//	input i_rst_n, 
+//	input i_clk,
+	input [15:0] i_data,
+	input i_recording,
+// 	input 
+// 	input i_en, // enable AudPlayer only when playing audio, work with AudDSP
+// 	input [15:0] i_dac_data, //dac_data
+	output [17:0] o_volume
+
+);
+
+//logic [1:0] state_r, state_w;
+//logic [17:0] volume_r, volume_w;
+//logic [3:0] det_16_r, det_16_w; //detect 16 bits
+
+//localparam S_IDLE  = 0;
+//localparam S_PROC  = 1;
+//localparam S_LRC1 = 2; //
+//localparam S_LRC0 = 3; //
+
+
+//assign o_volume = (state_r == S_PROC)? volume_r : 0;
+
+
+
+
+always_comb begin
+
+	//state_w  = state_r;
+	//volume_w = volume_r;
+	//data_w = data_r;
+	//det_16_w = det_16_r;
+	
+	// case(state_r)
+	// 	S_IDLE: begin
+	// 		state_w = (i_recording) ? S_PROC : S_IDLE; 
+	// 		volume_w = 18'b0;
+	// 	end
+	// 	S_PROC: begin
+	// 		volume_w = ((~i_data[15]) && i_data[14])? 18'b111111111111111111 : 18'b0;
+	// 		state_w = (i_recording) ? S_PROC : S_IDLE; 
+	// 	end
+	// endcase
+	if(i_recording) begin
+		if(i_data[15]^i_data[14]) begin
+			o_volume = 18'b111111111111111111;
+		end
+		else begin
+			o_volume = 18'b0;
+		end
+	end
+	else begin
+		o_volume = 18'b0;
+	end
+end
+
+// always_ff @ (posedge i_clk or negedge i_rst_n) begin
+// 	if(!i_rst_n) begin
+// 		state_r  <= S_IDLE;
+// 		volume_r <= 18'b0;
+// 		//data_r <= 16'b0;
+// 		//det_16_r <= 4'b0;
+// 	end else begin
+// 		state_r <= state_w;
+// 		volume_r <= volume_w;
+// 	end
+// end
+// endmodule

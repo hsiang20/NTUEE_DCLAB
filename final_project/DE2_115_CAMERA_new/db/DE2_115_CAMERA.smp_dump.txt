@@ -1,0 +1,73 @@
+
+State Machine - |DE2_115_CAMERA|Top:top0|state_r
+Name state_r.S_PLAY_PAUSE state_r.S_PLAY state_r.S_RECD_PAUSE state_r.S_RECD state_r.S_I2CED state_r.S_IDLE 
+state_r.S_IDLE 0 0 0 0 0 0 
+state_r.S_I2CED 0 0 0 0 1 1 
+state_r.S_RECD 0 0 0 1 0 1 
+state_r.S_RECD_PAUSE 0 0 1 0 0 1 
+state_r.S_PLAY 0 1 0 0 0 1 
+state_r.S_PLAY_PAUSE 1 0 0 0 0 1 
+
+State Machine - |DE2_115_CAMERA|Top:top0|Volume:volume|state_r
+Name state_r.S_WAIT0 state_r.S_PROC1_2 state_r.S_PROC1 state_r.S_WAIT1 state_r.S_PROC0_2 state_r.S_PROC0 state_r.S_IDLE 
+state_r.S_IDLE 0 0 0 0 0 0 0 
+state_r.S_PROC0 0 0 0 0 0 1 1 
+state_r.S_PROC0_2 0 0 0 0 1 0 1 
+state_r.S_WAIT1 0 0 0 1 0 0 1 
+state_r.S_PROC1 0 0 1 0 0 0 1 
+state_r.S_PROC1_2 0 1 0 0 0 0 1 
+state_r.S_WAIT0 1 0 0 0 0 0 1 
+
+State Machine - |DE2_115_CAMERA|Top:top0|AudRecorder:recorder0|state_r
+Name state_r.S_LRC0 state_r.S_DATA state_r.S_PROC state_r.S_IDLE 
+state_r.S_IDLE 0 0 0 0 
+state_r.S_PROC 0 0 1 1 
+state_r.S_DATA 0 1 0 1 
+state_r.S_LRC0 1 0 0 1 
+
+State Machine - |DE2_115_CAMERA|Top:top0|AudPlayer:player0|state_r
+Name state_r.S_LRC0 state_r.S_LRC1 state_r.S_PROC state_r.S_IDLE 
+state_r.S_IDLE 0 0 0 0 
+state_r.S_PROC 0 0 1 1 
+state_r.S_LRC1 0 1 0 1 
+state_r.S_LRC0 1 0 0 1 
+
+State Machine - |DE2_115_CAMERA|Top:top0|AudDSP:dsp0|state_r
+Name state_r.S_REV state_r.S_LRC0 state_r.S_LRC1 state_r.S_SLOW state_r.S_FAST state_r.S_IDLE 
+state_r.S_IDLE 0 0 0 0 0 0 
+state_r.S_FAST 0 0 0 0 1 1 
+state_r.S_SLOW 0 0 0 1 0 1 
+state_r.S_LRC1 0 0 1 0 0 1 
+state_r.S_LRC0 0 1 0 0 0 1 
+state_r.S_REV 1 0 0 0 0 1 
+
+State Machine - |DE2_115_CAMERA|Top:top0|I2CInitializer:init0|state_r
+Name state_r.S_FINISH state_r.S_SETTING state_r.S_START state_r.S_IDLE 
+state_r.S_IDLE 0 0 0 0 
+state_r.S_START 0 0 1 1 
+state_r.S_SETTING 0 1 0 1 
+state_r.S_FINISH 1 0 0 1 
+
+State Machine - |DE2_115_CAMERA|Top:top0|I2CInitializer:init0|I2C:i2c|prev_state_r
+Name prev_state_r.S_REG_DATA_LOWER prev_state_r.S_REG_DATA_UPPER prev_state_r.S_IDLE prev_state_r.S_RW 
+prev_state_r.S_IDLE 0 0 0 0 
+prev_state_r.S_RW 0 0 1 1 
+prev_state_r.S_REG_DATA_UPPER 0 1 1 0 
+prev_state_r.S_REG_DATA_LOWER 1 0 1 0 
+
+State Machine - |DE2_115_CAMERA|Top:top0|I2CInitializer:init0|I2C:i2c|state_r
+Name state_r.S_STOP state_r.S_ACK state_r.S_REG_DATA_LOWER state_r.S_REG_DATA_UPPER state_r.S_RW state_r.S_ADDR state_r.S_START state_r.S_IDLE 
+state_r.S_IDLE 0 0 0 0 0 0 0 0 
+state_r.S_START 0 0 0 0 0 0 1 1 
+state_r.S_ADDR 0 0 0 0 0 1 0 1 
+state_r.S_RW 0 0 0 0 1 0 0 1 
+state_r.S_REG_DATA_UPPER 0 0 0 1 0 0 0 1 
+state_r.S_REG_DATA_LOWER 0 0 1 0 0 0 0 1 
+state_r.S_ACK 0 1 0 0 0 0 0 1 
+state_r.S_STOP 1 0 0 0 0 0 0 1 
+
+State Machine - |DE2_115_CAMERA|I2C_CCD_Config:u8|mSetup_ST
+Name mSetup_ST.0000 mSetup_ST.0010 mSetup_ST.0001 
+mSetup_ST.0000 0 0 0 
+mSetup_ST.0001 1 0 1 
+mSetup_ST.0010 1 1 0 
